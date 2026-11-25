@@ -11,7 +11,7 @@
 set -e
 cd "$(dirname "$0")"
 NAME="MLX-Serve-Studio"
-VER="1.7"
+VER="1.8"
 OUT="$(pwd)/dist"
 STAGE="$(mktemp -d)/stage"
 ROOT="$(cd .. && pwd)"
@@ -35,11 +35,16 @@ cp -R "$OUT_APP" "$STAGE/"
 # ---------------------------------------------------------------- 内核 代码
 K="$STAGE/内核代码"
 mkdir -p "$K"
-for f in server.py api_full.py cap_engines.py engine.py image_engine.py image_engine_mflux.py image_advanced.py \
-         llm_engine.py music_engine.py music_mlx.py music_proxy.py music_workbench.py music_duration.py \
-         qwen3_tts_engine.py voice_studio.py voice_convert.py ui.py outputs.py model_catalog.json video_batch.py video_mv.py; do
-  [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$K/"
+# 跟 install.sh 一致: 拷贝 全部 顶层 模块, 只 排除 探针 / 回归 脚本.
+# 手工 清单 漏 过 msdl.py (魔搭下载) —— 漏 了 装完 点「下载」就 报「缺 msdl.py」.
+for f in "$ROOT"/*.py; do
+  b="$(basename "$f")"
+  case "$b" in
+    probe_ms*.py|smoke_*.py|test_*.py) continue ;;
+  esac
+  cp "$f" "$K/"
 done
+cp "$ROOT/model_catalog.json" "$K/" 2>/dev/null || true
 for d in ui tools engines; do
   [ -d "$ROOT/$d" ] && cp -R "$ROOT/$d" "$K/"
 done
@@ -117,7 +122,8 @@ chmod +x "$STAGE/安装到本机.command"
 
 # ---------------------------------------------------------------- 自检 内容
 MISS=""
-for f in install.sh clean.sh model_catalog.json ui/console.html tools/fetch_h3_mlx.py video_batch.py video_mv.py; do
+for f in install.sh clean.sh model_catalog.json ui/console.html tools/fetch_h3_mlx.py video_batch.py video_mv.py \
+         msdl.py server.py voice_studio.py image_engine_mflux.py music_workbench.py; do
   [ -e "$STAGE/内核代码/$f" ] || [ -e "$STAGE/$f" ] || MISS="$MISS $f"
 done
 [ -d "$STAGE/内核代码/krea2_engine_src" ] || MISS="$MISS krea2_engine_src"

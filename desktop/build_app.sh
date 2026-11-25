@@ -39,11 +39,17 @@ fi
 # 4) 内核 代码 —— 装 到 别的 mac 上 时, app 自己 就 带 着 内核
 K="$APP/Contents/Resources/kernel"
 mkdir -p "$K"
-for f in server.py api_full.py cap_engines.py engine.py image_engine.py image_engine_mflux.py image_advanced.py \
-         llm_engine.py music_engine.py music_mlx.py music_proxy.py music_workbench.py music_duration.py qwen3_tts_engine.py voice_studio.py \
-         voice_convert.py ui.py outputs.py model_catalog.json video_batch.py video_mv.py msdl.py; do
-  [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$K/"
+# 跟 install.sh / package.sh 一致: 拷贝 全部 顶层 模块 (只 排除 探针 / 回归 脚本).
+# 手工 清单 漏 过 msdl.py / voice_studio.py / image_engine_mflux.py —— 漏 了 换 台
+# 机器 装完 那 几 块 直接 白屏. 改 成 全量, 加 什么 都 不会 再 漏.
+for f in "$ROOT"/*.py; do
+  b="$(basename "$f")"
+  case "$b" in
+    probe_ms*.py|smoke_*.py|test_*.py) continue ;;
+  esac
+  cp "$f" "$K/"
 done
+cp "$ROOT/model_catalog.json" "$K/" 2>/dev/null || true
 # 魔搭 拉 权重 的 脚本 (模型 不 在 huggingface)
 [ -d "$ROOT/tools" ] && cp -R "$ROOT/tools" "$K/tools"
 # 我们 自研 的 出歌 引擎 (MiniMax Music3 的 服务 端)
@@ -67,7 +73,8 @@ chmod +x "$K/run_local_dev.sh"
 MISS=""
 for f in server.py api_full.py cap_engines.py engine.py image_engine.py image_engine_mflux.py image_advanced.py \
          llm_engine.py music_engine.py music_mlx.py music_proxy.py music_workbench.py music_duration.py \
-         qwen3_tts_engine.py voice_studio.py voice_convert.py ui.py outputs.py model_catalog.json video_batch.py video_mv.py msdl.py; do
+         qwen3_tts_engine.py voice_studio.py voice_convert.py ui.py outputs.py model_catalog.json video_batch.py video_mv.py \
+         msdl.py; do
   [ -f "$K/$f" ] || MISS="$MISS $f"
 done
 [ -f "$K/ui/console.html" ] || MISS="$MISS ui/console.html"
