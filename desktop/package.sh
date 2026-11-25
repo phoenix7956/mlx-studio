@@ -11,7 +11,7 @@
 set -e
 cd "$(dirname "$0")"
 NAME="MLX-Serve-Studio"
-VER="1.8"
+VER="1.9"
 OUT="$(pwd)/dist"
 STAGE="$(mktemp -d)/stage"
 ROOT="$(cd .. && pwd)"
@@ -62,6 +62,9 @@ if [ -d "$ROOT/vendor_src/mlx_video" ]; then
 fi
 # 别 把 __pycache__ 打进 包 —— 换 python 版本 就 是 一 堆 垃圾
 find "$K" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
+# ACE-Step 权重 目录 的 软链 —— 指向 打包机 的 绝对路径, 换 台 机器 就 是 死链.
+# install.sh 会 按 本机 实际 路径 重 建 一 条, 所以 包 里 不 带.
+rm -f "$K/ace-step-engine/project/checkpoints" 2>/dev/null || true
 cp "$(dirname "$0")/run_local_dev.sh" "$K/run_local_dev.sh"
 chmod +x "$K/run_local_dev.sh"
 
@@ -75,6 +78,9 @@ if [ -n "$ACE_SRC" ]; then
 else
   echo "⚠️  没 找到 $ACE_ENGINE —— 出歌 引擎 不 在 包 里 (装 完 只能 用 MiniMax Music3)"
 fi
+# ACE-Step 权重 目录 的 软链 —— 指向 打包机 的 绝对路径, 换 台 机器 就 是 死链.
+# install.sh 会 按 本机 实际 路径 重 建 一 条, 所以 包 里 不 带.
+rm -f "$K/ace-step-engine/project/checkpoints" 2>/dev/null || true
 
 # ---------------------------------------------------------------- 安装脚本
 cp "$ROOT/install.sh" "$STAGE/install.sh"
@@ -145,6 +151,8 @@ hdiutil create -volname "$NAME $VER" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 # 打包 前 最后 清 一 次 __pycache__ (ace-step 引擎 里 也 有)
 find "$STAGE" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 find "$STAGE" -name "*.pyc" -delete 2>/dev/null || true
+# ACE-Step 权重 软链 —— 指向 打包机 的 绝对路径, 换 台 机器 就 是 死链
+rm -f "$STAGE/内核代码/ace-step-engine/project/checkpoints" 2>/dev/null || true
 ( cd "$STAGE" && zip -qry "$OUT/$NAME-$VER.zip" . )
 
 # ---------------------------------------------------------------- 挂载 自检

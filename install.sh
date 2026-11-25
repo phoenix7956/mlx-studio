@@ -293,6 +293,19 @@ exec ffmpeg "\$@"
 FFW
 chmod +x "$OURS/bin/ffmpeg" 2>/dev/null || true
 say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 压 mp4 用)"
+
+# 「第二台机」(出片 / 出图 节点) 的 连接 配置 ——
+#   开源版 不 写死 任何 地址. 装 的时候 带上 REMOTE_SSH_TARGET (或 REMOTE_SSH_HOST)
+#   就 写 进 ~/.ours/node.json; 不 带 就 不写 (本机 独立 跑 用 不 到).
+if [ -n "${REMOTE_SSH_TARGET:-}" ] || [ -n "${REMOTE_SSH_HOST:-}" ]; then
+  _t="${REMOTE_SSH_TARGET:-}"
+  if [ -z "$_t" ] && [ -n "${REMOTE_SSH_HOST:-}" ]; then
+    _t="${REMOTE_SSH_USER:-<you>}@${REMOTE_SSH_HOST}"
+  fi
+  printf '{"target": "%s"}\n' "$_t" > "$OURS/node.json" 2>/dev/null || true
+  say "第二台机: ~/.ours/node.json -> $_t"
+fi
+
 # mflux = 第二 套 出图 内核 (Z-Image-Turbo / MOSS-Image-SFT) ——
 #   不 装 的 话, 出图 页 里 那 两个 模型 会 报 "no module named mflux"
 if ! "$PY" -c "import mflux" >/dev/null 2>&1; then

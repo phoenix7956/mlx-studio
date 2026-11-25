@@ -28,3 +28,7 @@ tools/*.exe
 # 桌面 App 编译 产物
 desktop/dist/
 desktop/build/
+
+# ACE-Step 权重 目录 的 软链 —— 指向 本机 绝对路径, 不能 进 仓库
+# (装 的时候 install.sh 会 按 本机 实际 路径 重 建 一 条)
+ace-step-engine/project/checkpoints

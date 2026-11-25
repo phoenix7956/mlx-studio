@@ -1,11 +1,38 @@
 #!/usr/bin/env python3
 """跑 批 完 结 -> 拉 回 本 机 + ffmpeg 按 中 54 / 英 57 顺 序 合 并. 一 次 一 件, 串 行."""
 import json, os, subprocess, sys, time, urllib.request
-SSH = ["ssh","-o","ConnectTimeout=10","<you>@<node-ip>"]
-FFMPEG = "/opt/homebrew/bin/ffmpeg"
-BASE = os.path.expanduser("~/Desktop/rea/soak-results/mlxserve/mv_mp4")
+import shutil
+try:
+    import remote_node
+except Exception:
+    remote_node = None
+
+
+def _target():
+    if remote_node is not None:
+        t = remote_node.target()
+        if t:
+            return t
+    return os.environ.get("REMOTE_SSH_TARGET", "")
+
+
+def _ffmpeg():
+    for c in (shutil.which("ffmpeg"),
+              os.path.expanduser("~/.ours/bin/ffmpeg"),
+              "/opt/homebrew/bin/ffmpeg"):
+        if c and os.path.exists(c):
+            return c
+    return "ffmpeg"
+
+
+SSH = ["ssh","-o","ConnectTimeout=10",_target() or "user@localhost"]
+FFMPEG = _ffmpeg()
+BASE = os.path.expanduser(os.environ.get(
+    "MV_BASE", "~/Desktop/rea/soak-results/mlxserve/mv_mp4"))
+OUT_DIR = os.path.expanduser(os.environ.get(
+    "MV_OUT", "~/Desktop/rea/soak-results/mlxserve"))
 def node_read_done():
-    out = subprocess.run(SSH + ["cat","/Users/<you>/.ours/mlx_server/done.json"],
+    out = subprocess.run(SSH + ["cat","~/.ours/mlx_server/done.json"],
                          capture_output=True, text=True, check=True).stdout
     d = json.loads(out)
     return d if isinstance(d,dict) else {}
@@ -19,11 +46,11 @@ def fetch(node_path, local):
         os.makedirs(local_frames, exist_ok=True)
         # 帧 一 张 张 太 慢, 用 单 次 scp 拉 整 个 目 录
         subprocess.run(["scp","-o","ConnectTimeout=10","-r",
-                        f"<you>@<node-ip>:{d}/*.png", local_frames],
+                        f"{_target()}:{d}/*.png", local_frames],
                        capture_output=True, text=True)
         # wav (有 的 段 带 音 轨)
         subprocess.run(["scp","-o","ConnectTimeout=10",
-                        f"<you>@<node-ip>:{d}.wav", local_frames],
+                        f"{_target()}:{d}.wav", local_frames],
                        capture_output=True, text=True)
     # 本 机 ffmpeg 合
     wav = os.path.join(local_frames, os.path.basename(d)+".wav")
@@ -49,17 +76,17 @@ def main():
         if not files: print(f"{grp}: 无文件"); continue
         lst = os.path.join(BASE, f"concat_{grp}.txt")
         open(lst,"w").write("\n".join(f"file '{f}'" for f in files))
-        out = os.path.expanduser(f"~/Desktop/rea/soak-results/mlxserve/mv_{grp}_merged.mp4")
+        out = os.path.join(OUT_DIR, f"mv_{grp}_merged.mp4")
         # 先 concat 合 成 片, 再 烧 歌 词 字 幕 轨 (有 歌 词 标 记 时)
-        no_sub = os.path.expanduser(f"~/Desktop/rea/soak-results/mlxserve/mv_{grp}_merged_nosub.mp4")
+        no_sub = os.path.join(OUT_DIR, f"mv_{grp}_merged_nosub.mp4")
         subprocess.run([FFMPEG,"-y","-f","concat","-safe","0","-i",lst,"-c","copy",no_sub],check=True)
         # 抽 每 段 歌 词 行 (shot 脚 本 "主 唱 口 型 与 动 作 随 词: X 当 前 段 落: Y" -> X), 按 5s/段 对 齐
         shot_files = os.path.join(BASE, f"shots_{grp}.txt")
-        ass_path = os.path.expanduser(f"~/Desktop/rea/soak-results/mlxserve/mv_{grp}.ass")
+        ass_path = os.path.join(OUT_DIR, f"mv_{grp}.ass")
         lyr_lines = _extract_lyrics(shot_files)
         if lyr_lines:
             _write_ass(ass_path, lyr_lines, sec_per_shot=_sec_per_shot(done, grp))
-            burn = os.path.expanduser(f"~/Desktop/rea/soak-results/mlxserve/mv_{grp}_merged_burned.mp4")
+            burn = os.path.join(OUT_DIR, f"mv_{grp}_merged_burned.mp4")
             subprocess.run([FFMPEG,"-y","-i",no_sub,"-vf",
                             f"ass={ass_path}","-c:v","libx264","-crf","18","-c:a","copy","-safe","0",burn],check=True)
             os.replace(burn, out)

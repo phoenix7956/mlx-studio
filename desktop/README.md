@@ -52,7 +52,10 @@ A="$HOME/.ours/build/MLX Serve Studio.app/Contents/MacOS/MLXServeStudio"
 > 这台机器的 CommandLineTools 没有 `libSwiftUIMacros.dylib`，SwiftUI 的
 > `@State/@StateObject/@EnvironmentObject` 宏编译不过，所以本壳是纯 AppKit 手写的。
 
-## 放到 远端机 上（<you>@<node-ip>）
+## 放到「第二台机」上（出片 / 出图 节点）
+
+> 连接 地址 不 写死 在 代码 里 —— 设 `REMOTE_SSH_TARGET=user@host`,
+> 或 写 `~/.ours/node.json`（`{"target": "user@host"}`）。
 
 - 桌面放一个 **符号链接** `MLX Serve Studio.app` → `~/.ours/build/MLX Serve Studio.app`，
   双击即开（要 的是 那 一 份 唯一 的 app，别 在 桌面 再 放 实体 副本）。
@@ -61,7 +64,7 @@ A="$HOME/.ours/build/MLX Serve Studio.app/Contents/MacOS/MLXServeStudio"
   端口 `127.0.0.1:11251`、`node=remote`。
 - 桌面交付目录是唯一真源：`启动 MLX Serve Studio.command` 每次先 rsync 到 `~/.ours` 再开 App。
 
-细节见 `../远端机部署说明.md`。
+细节见 `../docs/标准工作流.md`。
 
 ---
 
@@ -99,7 +102,7 @@ MLX Serve Studio.app/     ← 原生壳（AppKit + WKWebView）+ 内核代码 + 
 #    内核没起来时，点中间「启动内核」按钮（App 自带 run_local_dev.sh）
 
 # B) 指向局域网里已有内核的机器（那台有权重，这台只当界面）
-open -a "/Applications/MLX Serve Studio.app" --args --server <node-ip>:11251
+open -a "/Applications/MLX Serve Studio.app" --args --server <内网机器IP>:11251
 
 # C) 命令行参数
 --port 11251            # 内核端口

@@ -42,8 +42,21 @@ except Exception:                                   # pragma: no cover
     outputs = None
 
 
-NODE_USER = os.environ.get("REMOTE_SSH_USER", "<you>")
-NODE_HOST = os.environ.get("REMOTE_SSH_HOST", "<node-ip>")
+try:
+    import remote_node
+except Exception:                                   # pragma: no cover
+    remote_node = None
+
+
+def _remote():
+    """返回 (user, host) —— 开源版 不 写死 任何 机器 的 地址."""
+    if remote_node is not None:
+        return remote_node.user(), remote_node.host()
+    return (os.environ.get("REMOTE_SSH_USER", ""),
+            os.environ.get("REMOTE_SSH_HOST", ""))
+
+
+NODE_USER, NODE_HOST = _remote()
 NODE_PORT = os.environ.get("NODE_PORT", "11251")
 
 _lock = threading.Lock()

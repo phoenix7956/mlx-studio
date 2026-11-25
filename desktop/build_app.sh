@@ -97,6 +97,8 @@ fi
 
 # 别 把 __pycache__ 打进 app —— 自检 import 会 生成 一 堆, 换 python 版本 就 是 垃圾
 find "$K" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
+# ACE-Step 权重 目录 的 软链 —— 指向 打包机 的 绝对路径, 换 台 机器 就 是 死链
+rm -f "$K/ace-step-engine/project/checkpoints" 2>/dev/null || true
 
 # 5) 签名 (ad-hoc) —— 没 开发者 证书 时 也能 在 自己 机器 上 跑
 codesign --force --deep -s - "$APP" 2>/dev/null || true

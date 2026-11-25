@@ -540,8 +540,8 @@ class Srv:
         local_out=q.get("local_out",[None])[0]
         if local_out and NODE=="remote":
             import subprocess as _sp
-            host=os.environ.get("REMOTE_SSH_HOST","<node-ip>")
-            _sp.run(["scp","-o","ConnectTimeout=10",f"<you>@{host}:{out}.mp4",
+            import remote_node
+            _sp.run(["scp","-o","ConnectTimeout=10",f"{remote_node.target()}:{out}.mp4",
                     os.path.expanduser(local_out)], capture_output=True, timeout=300)
             local_path=os.path.join(os.path.expanduser(local_out), os.path.basename(out+".mp4"))
             if os.path.exists(local_path):
@@ -1606,8 +1606,8 @@ class H(BaseHTTPRequestHandler):
         # 可选回传: local_out=<dir> 时, 把 png scp 到调用方本机, 返回本机真实路径
         if local_out and NODE=="remote":
             import subprocess as _sp
-            host=os.environ.get("REMOTE_SSH_HOST","<node-ip>")
-            _sp.run(["scp","-o","ConnectTimeout=10",f"<you>@{host}:{out}",
+            import remote_node
+            _sp.run(["scp","-o","ConnectTimeout=10",f"{remote_node.target()}:{out}",
                     os.path.expanduser(local_out)], capture_output=True, timeout=120)
             local_path=os.path.join(os.path.expanduser(local_out), os.path.basename(out))
             if os.path.exists(local_path):
@@ -1622,8 +1622,8 @@ class H(BaseHTTPRequestHandler):
         # 可选 回 传: local_out=<dir> 时 scp 到 调 用 方 本 机
         if local_out and NODE=="remote" and out and "url" in out:
             import subprocess as _sp
-            host=os.environ.get("REMOTE_SSH_HOST","<node-ip>")
-            _sp.run(["scp","-o","ConnectTimeout=10",f"<you>@{host}:{out['url'].split('file://')[-1]}",
+            import remote_node
+            _sp.run(["scp","-o","ConnectTimeout=10",f"{remote_node.target()}:{out['url'].split('file://')[-1]}",
                     os.path.expanduser(local_out)], capture_output=True, timeout=120)
             lp=os.path.join(os.path.expanduser(local_out), out['url'].split('file://')[-1])
             if os.path.exists(lp): out={"url":f"file://{lp}","sec":out.get("sec"),"lyrics":bool(lyrics)}
