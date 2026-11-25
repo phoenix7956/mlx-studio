@@ -32,7 +32,7 @@
 要求：**macOS + Apple Silicon**（M 系列芯片）。
 
 ```bash
-git clone <这个仓库>
+git clone https://github.com/phoenix7956/mlx-studio.git
 cd mlx-studio
 ./install.sh
 ```
