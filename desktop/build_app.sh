@@ -73,6 +73,7 @@ done
 [ -f "$K/ui/console.html" ] || MISS="$MISS ui/console.html"
 if [ -n "$MISS" ]; then
   echo "❌ 内核 文件 缺:$MISS —— 界面 会 白屏, 别 装" >&2
+  rm -rf "$OUT_APP" 2>/dev/null || true      # 别 把 半个 App 留 在 那儿 (装 上去 就 白屏)
   exit 1
 fi
 PY=""
@@ -80,8 +81,9 @@ for c in "$HOME/.venvs/mtx/bin/python" "$(command -v python3 2>/dev/null || true
   [ -x "$c" ] && PY="$c" && break
 done
 if [ -n "$PY" ]; then
-  ( cd "$K" && "$PY" -c "import ui,server,music_workbench,music_mlx,outputs,video_batch,video_mv,voice_studio" >/dev/null 2>&1 ) || {
+  ( cd "$K" && "$PY" -c "import ui,server,music_workbench,music_mlx,outputs,video_batch,video_mv,voice_studio,msdl,image_engine_mflux" >/dev/null 2>&1 ) || {
     echo "❌ 内核 模块 import 失败 —— 装 上去 也 是 白屏" >&2
+    rm -rf "$OUT_APP" 2>/dev/null || true
     exit 1
   }
 fi
