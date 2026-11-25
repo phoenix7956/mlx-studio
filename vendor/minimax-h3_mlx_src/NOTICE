@@ -1,0 +1,53 @@
+MiniMax-H3 MLX port
+====================
+
+This directory contains a copy of the upstream project
+
+    minimax-h3-mlx
+    https://github.com/PipeNetwork/minimax-h3-mlx
+
+which is licensed under the Apache License, Version 2.0. The full license
+text is in the LICENSE file next to this notice.
+
+Modifications
+-------------
+The MLX Studio project (https://github.com/ours-mlx/mlx-studio) redistributed
+this source tree with the following changes. Per section 4(b) of the Apache
+License, the changed files are listed here:
+
+  * minimax_h3_mlx/__init__.py   - added (empty package marker)
+  * minimax_h3_mlx/adaln.py      - quantized nn.Linear has no `.weight`
+                                    attribute; the dtype fallback now reads
+                                    `.scales` when present.
+  * minimax_h3_mlx/media.py      - added `find_ffmpeg()`, a locator that also
+                                    checks ~/.ours/bin, the imageio-ffmpeg
+                                    wheel and common Homebrew prefixes, so the
+                                    pipeline works on machines without ffmpeg
+                                    on PATH.
+  * minimax_h3_mlx/pipeline.py   - added `ref_images` support (reference-image
+                                    conditioning) and reporting of sequence
+                                    length / width / height / frame count.
+
+The `reference/`, `tests/` and some `scripts/` directories of the upstream
+project are not part of this redistribution; they are only needed for
+upstream's own parity testing and quantization evaluation.
+
+Weights
+-------
+This source tree contains NO model weights. The MiniMax-H3 weights are
+downloaded at runtime by the user and are governed by the MiniMax H3
+Community License on Hugging Face, which is separate from this source code.
+
+The text of that license is reproduced in MINIMAX-H3-COMMUNITY-LICENSE.txt,
+together with the notice it requires in section III.4:
+
+  "MiniMax H3 is licensed under the MiniMax H3 Community License Agreement,
+   Copyright (c) 2026 MiniMax. All Rights Reserved."
+
+This is included as a precaution. The Apache-2.0 port above was written
+independently and does not contain MiniMax model code or weights; the
+agreement governs the weights, not this source file. Users who download the
+weights accept the agreement themselves and must comply with it, including
+its revenue threshold, its "Powered by MiniMax H3" display requirement for
+commercial products, and its territorial restrictions (the applicable
+territory excludes the EU, the UK, South Korea and the USA).

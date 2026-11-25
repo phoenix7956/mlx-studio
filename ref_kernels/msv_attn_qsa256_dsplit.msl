@@ -1,0 +1,231 @@
+constexpr int BD = 256;
+constexpr int LDK = BK + 8;
+constexpr int LDV = BD + 8;
+constexpr int NT = 32 * NSG;
+constexpr int KT = BK / 8;
+constexpr int VPW = 32 / BITS;
+constexpr int NW = 8 / VPW;
+constexpr uint MASKB = (1u << BITS) - 1u;
+const int bb = int(threadgroup_position_in_grid.z) / NSPLIT;
+const int jsp = int(threadgroup_position_in_grid.z) - bb * NSPLIT;
+const int s = int(threadgroup_position_in_grid.x);
+const int hk = int(threadgroup_position_in_grid.y);
+const int qL = 1;
+const int Hq = meta[0];
+const int Hk = meta[1];
+const int gqa = Hq / Hk;
+const int KB = meta[2];
+const int kL = meta[3 + 2 * bb];
+const long cap = meta[4 + 2 * bb];
+const device auto* kq = bb == 1 ? kq1 : bb == 2 ? kq2 : bb == 3 ? kq3 : kq0;
+const device auto* ksc = bb == 1 ? ksc1 : bb == 2 ? ksc2 : bb == 3 ? ksc3 : ksc0;
+const device auto* kbi = bb == 1 ? kbi1 : bb == 2 ? kbi2 : bb == 3 ? kbi3 : kbi0;
+const device auto* vq = bb == 1 ? vq1 : bb == 2 ? vq2 : bb == 3 ? vq3 : vq0;
+const device auto* vsc = bb == 1 ? vsc1 : bb == 2 ? vsc2 : bb == 3 ? vsc3 : vsc0;
+const device auto* vbi = bb == 1 ? vbi1 : bb == 2 ? vbi2 : bb == 3 ? vbi3 : vbi0;
+const long qS[3] = {(long)Hq * qL * BD, (long)qL * BD, BD};
+const long blS[2] = {(long)qL * KB, KB};
+const long kqS[3] = {0, cap * (BD / VPW), BD / VPW};
+const long kscS[3] = {0, cap * (BD / GS), BD / GS};
+const long kbiS[3] = {0, cap * (BD / GS), BD / GS};
+const long vqS[3] = {0, cap * (BD / VPW), BD / VPW};
+const long vscS[3] = {0, cap * (BD / GS), BD / GS};
+const long vbiS[3] = {0, cap * (BD / GS), BD / GS};
+pacc += (long)bb * Hq * qL * NSPLIT * BD;
+pml += (long)bb * Hq * qL * NSPLIT * 2;
+const ushort lane = ushort(thread_index_in_simdgroup);
+const ushort warp = ushort(simdgroup_index_in_threadgroup);
+const int tix = int(thread_index_in_threadgroup);
+
+const float scale_log2e = scl[0] * 1.44269504088896340736f;
+// Query s sits at absolute key position p (bottom-right aligned). Its
+// visible keys: `count` complete blocks, then the tail [tail_start, p].
+const int p = (kL - qL) + s;
+const int complete = (p + 1) / RATIO;
+const int count = metal::min(complete, KB);
+const int sel_len = count * RATIO;
+const int tail_start = complete * RATIO;
+const int L = sel_len + (p + 1 - tail_start);
+// Split-K. This threadgroup owns virtual keys [t_lo, t_hi) of the row's
+// own range [0, L). The virtual index already concatenates the row's
+// selected blocks and THEN its ragged tail, so a contiguous virtual
+// range is exactly a contiguous block range — plus, for the last
+// non-empty split, the tail. Boundaries are BK-aligned so every tile
+// but a split's last is full. A split starting past L is EMPTY and
+// writes the merge's identity.
+const int tiles = (L + BK - 1) / BK;
+// BALANCED=0 (default, MEASURED): ceil(tiles/NSPLIT) per split, so the
+// last splits can be short or empty — at the swept shape 129 tiles over
+// 16 splits is 14 full, 1 partial, 1 empty. BALANCED=1 spreads the
+// remainder one tile per split instead. Strictly better load balance on
+// paper; NOT the default because the sweep that chose NSPLIT=16 ran on
+// the ceil distribution, and changing how work is divided invalidates
+// it. Same outputs either way — the split boundaries move, the merge is
+// exact over whatever they are.
+int t_lo, t_hi;
+if (BALANCED) {
+  const int base_t = tiles / NSPLIT;
+  const int rem_t = tiles % NSPLIT;
+  const int start_t = jsp * base_t + metal::min(jsp, rem_t);
+  const int cnt_t = base_t + ((jsp < rem_t) ? 1 : 0);
+  t_lo = start_t * BK;
+  t_hi = metal::min(L, (start_t + cnt_t) * BK);
+} else {
+  const int tiles_per = (tiles + NSPLIT - 1) / NSPLIT;
+  t_lo = jsp * tiles_per * BK;
+  t_hi = metal::min(L, t_lo + tiles_per * BK);
+}
+
+const device int* blk = blocks + (long)bb * blS[0] + (long)s * blS[1];
+const long kq_base  = (long)bb * kqS[0]  + (long)hk * kqS[1];
+const long ksc_base = (long)bb * kscS[0] + (long)hk * kscS[1];
+const long kbi_base = (long)bb * kbiS[0] + (long)hk * kbiS[1];
+const long vq_base  = (long)bb * vqS[0]  + (long)hk * vqS[1];
+const long vsc_base = (long)bb * vscS[0] + (long)hk * vscS[1];
+const long vbi_base = (long)bb * vbiS[0] + (long)hk * vbiS[1];
+
+threadgroup T KVs[LDK * BD];
+threadgroup T* Ks = KVs;
+threadgroup T* Vs = KVs;
+
+const short2 sc = msv_coord(lane);
+const short sn = sc.x;
+const short sm = sc.y;
+const short tm = 8 * short(warp);
+const int Ks_off = sm * LDK + sn;
+const int Vs_off = sm * LDV + sn;
+const int row = tm + sm;
+const bool row_ok = row < gqa;
+
+float2 Qfrag[BD / 8];
+if (row_ok) {
+  const device T* Qrow = q + bb * qS[0] + (long)(hk * gqa + row) * qS[1] + (long)s * qS[2];
+  for (int dd = 0; dd < BD / 8; ++dd) {
+    const vec<T, 2> pr = *((const device vec<T, 2>*)(Qrow + dd * 8 + sn));
+    Qfrag[dd] = float2(float(pr.x), float(pr.y));
+  }
+} else {
+  for (int dd = 0; dd < BD / 8; ++dd) Qfrag[dd] = float2(0.0f);
+}
+float2 Ofrag[BD / 8];
+for (int i = 0; i < BD / 8; ++i) Ofrag[i] = float2(0.0f);
+float max_score = -3.0e38f;
+float sum_score = 0.0f;
+
+for (int t0 = t_lo; t0 < t_hi; t0 += BK) {
+  const int rows_k = metal::min(BK, t_hi - t0);
+
+  // K tile: dequantize into the SAME transposed staging the dense
+  // kernel fills, so the fragment math below is untouched. The 8 dims of
+  // one chunk share a quant group (GS is a multiple of 8), so the
+  // scale/bias pair is read once per chunk, not per element.
+  threadgroup_barrier(metal::mem_flags::mem_threadgroup);
+  for (int i = tix; i < BK * (BD / 8); i += NT) {
+    const int r = i >> 5;
+    const int c8 = i & 31;
+    const int cb = c8 * 8;
+    T ev[8];
+    if (r < rows_k) {
+      const int pos = msv_qsa_pos(blk, t0 + r, sel_len, tail_start, RATIO);
+      const long wrow = kq_base + (long)pos * kqS[2];
+      const int g = cb / GS;
+      const float sj = float(ksc[ksc_base + (long)pos * kscS[2] + (long)g]);
+      const float bj = float(kbi[kbi_base + (long)pos * kbiS[2] + (long)g]);
+      for (int wj = 0; wj < NW; ++wj) {
+        const uint w = uint(kq[wrow + (long)(cb / VPW + wj)]);
+        for (int u = 0; u < VPW; ++u) ev[wj * VPW + u] = T(float((w >> (u * BITS)) & MASKB) * sj + bj);
+      }
+    } else {
+      for (int j = 0; j < 8; ++j) ev[j] = T(0.0f);
+    }
+    for (int j = 0; j < 8; ++j) Ks[(cb + j) * LDK + r] = ev[j];
+  }
+  threadgroup_barrier(metal::mem_flags::mem_threadgroup);
+
+  float2 Sfrag[KT];
+  for (int i = 0; i < KT; ++i) Sfrag[i] = float2(0.0f);
+  for (int dd = 0; dd < BD / 8; ++dd) {
+    const float2 qf = Qfrag[dd];
+    const int kbase = Ks_off + dd * 8 * LDK;
+    for (int kt = 0; kt < KT; ++kt) {
+      const float2 kf = float2(float(Ks[kbase + kt * 8]), float(Ks[kbase + kt * 8 + 1]));
+      msv_mma(Sfrag[kt], qf, kf);
+    }
+  }
+  for (int kt = 0; kt < KT; ++kt) Sfrag[kt] *= scale_log2e;
+  if (rows_k < BK) {
+    for (int kt = 0; kt < KT; ++kt) {
+      if (kt * 8 + sn >= rows_k) Sfrag[kt].x = -INFINITY;
+      if (kt * 8 + sn + 1 >= rows_k) Sfrag[kt].y = -INFINITY;
+    }
+  }
+
+  // V tile: dequantize straight into the row-major staging.
+  threadgroup_barrier(metal::mem_flags::mem_threadgroup);
+  for (int i = tix; i < BK * (BD / 8); i += NT) {
+    const int r = i >> 5;
+    const int c8 = i & 31;
+    const int cb = c8 * 8;
+    T ev[8];
+    if (r < rows_k) {
+      const int pos = msv_qsa_pos(blk, t0 + r, sel_len, tail_start, RATIO);
+      const long wrow = vq_base + (long)pos * vqS[2];
+      const int g = cb / GS;
+      const float sj = float(vsc[vsc_base + (long)pos * vscS[2] + (long)g]);
+      const float bj = float(vbi[vbi_base + (long)pos * vbiS[2] + (long)g]);
+      for (int wj = 0; wj < NW; ++wj) {
+        const uint w = uint(vq[wrow + (long)(cb / VPW + wj)]);
+        for (int u = 0; u < VPW; ++u) ev[wj * VPW + u] = T(float((w >> (u * BITS)) & MASKB) * sj + bj);
+      }
+    } else {
+      for (int j = 0; j < 8; ++j) ev[j] = T(0.0f);
+    }
+    for (int j = 0; j < 8; ++j) Vs[r * LDV + cb + j] = ev[j];
+  }
+
+  float new_max = max_score;
+  for (int kt = 0; kt < KT; ++kt) new_max = metal::max(new_max, msv_row_max(Sfrag[kt]));
+  float rowsum = 0.0f;
+  for (int kt = 0; kt < KT; ++kt) {
+    Sfrag[kt] = metal::exp2(Sfrag[kt] - new_max);
+    rowsum += msv_row_sum(Sfrag[kt]);
+  }
+  const float factor = metal::exp2(max_score - new_max);
+  max_score = new_max;
+  sum_score = sum_score * factor + rowsum;
+  for (int i = 0; i < BD / 8; ++i) Ofrag[i] *= factor;
+
+  threadgroup_barrier(metal::mem_flags::mem_threadgroup);
+  for (int id = 0; id < BD / 8; ++id) {
+    const int vbase = Vs_off + id * 8;
+    for (int kt = 0; kt < KT; ++kt) {
+      const float2 vf = float2(float(Vs[vbase + kt * 8 * LDV]), float(Vs[vbase + kt * 8 * LDV + 1]));
+      msv_mma(Ofrag[id], Sfrag[kt], vf);
+    }
+  }
+}
+
+// Partials for the merge pass, UNNORMALIZED: the running max and the
+// running sum belong to this split alone, and only the merge knows the
+// row's global max. `msv_row_max`/`msv_row_sum` reduce across the four
+// lanes holding a row, so every lane of the row carries the same m/l
+// and exactly one of them (sn == 0) writes the pair.
+//
+// An empty split writes l = 0, which is the merge's skip flag: a
+// NON-empty split always has l >= 1, because its own maximum element
+// contributes exp2(max - max) = 1. So l == 0 identifies emptiness
+// exactly, and the merge never evaluates (-inf) - (-inf).
+if (row_ok) {
+  const int hq = hk * gqa + row;
+  const long pidx = ((long)hq * (long)qL + (long)s) * NSPLIT + jsp;
+  device float* Aptr = pacc + pidx * BD + sn;
+  for (int id = 0; id < BD / 8; ++id) {
+    Aptr[id * 8] = Ofrag[id].x;
+    Aptr[id * 8 + 1] = Ofrag[id].y;
+  }
+  if (sn == 0) {
+    const bool empty = (t_lo >= t_hi);
+    pml[pidx * 2] = empty ? -INFINITY : max_score;
+    pml[pidx * 2 + 1] = empty ? 0.0f : sum_score;
+  }
+} kq0

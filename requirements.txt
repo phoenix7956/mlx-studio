@@ -1,0 +1,29 @@
+# MLX Studio —— 开发 / 手动 安装 用 的 依赖.
+#   正常 用户 不用 管 这个 文件 —— 直接 跑 ./install.sh 就行,
+#   脚本 会 自己 装 (还 会 装 出歌 引擎 的 大 环境).
+
+# 内核
+mlx>=0.22
+mlx-lm>=0.19          # 对话
+mlx-audio>=0.2        # TTS / 音效 / MiniMax Music3
+
+# 权重 读取
+huggingface_hub>=0.24
+safetensors>=0.4
+modelscope>=1.18      # 魔搭 —— 国内 下载 权重 最快
+
+# 图像 / 视频
+numpy
+pillow
+opencv-python-headless
+einops
+ftfy
+sentencepiece
+
+# 出片 写 mp4
+imageio
+imageio-ffmpeg
+
+# 出图 第二 套 内核 (Z-Image-Turbo / MOSS-Image-SFT)
+mflux>=0.23.0
+

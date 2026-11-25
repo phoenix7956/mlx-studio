@@ -1,0 +1,168 @@
+"""The engine's recipe: presets, request options, and the plan they produce for one song.
+
+Defaults decided 2026-10-23: the LM may rewrite the prompt (``literal`` opts out);
+BPM and key written in the prompt bind the LM; a prompt that names no voice is
+instrumental; duration is only ever an explicit option, never read from the prompt;
+output is 32-bit float WAV left raw, or a 320 kbps MP3 peak-normalized to
+-1 dBFS (MP3 would clip otherwise; see audio_export.py). ``plan_request`` is pure,
+so every rule is unit-tested.
+"""
+
+import os
+import re
+from dataclasses import dataclass, field, replace
+from typing import Any, Dict, Optional
+
+from acestep_mlx.prompt_rules import explicit_bpm, explicit_key, wants_vocals, lyrics_language
+
+DURATION_MIN = 10.0  # upstream acestep/constants.py
+
+
+@dataclass(frozen=True)
+class Preset:
+    """Machine-level choices made once at engine start."""
+
+    name: str
+    lm_model: str
+    default_duration: float
+    max_duration: float
+
+
+# mini: 原 240 s 是在 64G Mac mini 上 量 的; 我们 这 台 128G M5 Max 实测 480 s 能 出
+# (peak 显存 不 随 时长 明显 涨), 所以 把 配方 表 的 上限 也 抬 到 480 —— 这样
+# **任何 启动方式** (带 --max-duration / 不带) 都 过 480, 不 再 靠 启动 参数 兜.
+# laptop: 没 在 笔记本 上 量 过; N4 显示 显存 几乎 不 随 时长 涨, 但 30 s 上限 是
+# 保守  precaution, 笔记本 的 真正 抓手 是 应用 的 闲置 自动 卸载 (bench/n7).
+PRESETS = {
+    "mini": Preset("mini", "acestep-5Hz-lm-0.6B", default_duration=30.0, max_duration=480.0),
+    "laptop": Preset("laptop", "acestep-5Hz-lm-0.6B", default_duration=30.0, max_duration=30.0),
+}
+# Upstream always writes this; MP3 is made from it by audio_export.
+UPSTREAM_FORMAT = "wav32"
+FORMATS = ("wav", "mp3")
+# Longer than any song the presets allow; it bounds what the LM is given.
+LYRICS_MAX = 4000
+# Seed range the DiT accepts (upstream draws from the whole 32-bit space).
+SEED_MAX = 2**32 - 1
+_SONG_NAME = re.compile(r"^\d{8}-\d{6}-[0-9a-z-]{1,8}$")
+
+
+@dataclass(frozen=True)
+class Options:
+    """Per-request options; every field has the default the app uses today."""
+
+    literal: bool = False
+    vocals: Optional[bool] = None  # None: decided from the prompt
+    duration: Optional[float] = None  # None: the preset's default
+    format: str = "wav"
+    like: Optional[str] = None  # folder name of a song to make another version of
+    lyrics: Optional[str] = None  # the user's own lyrics, sung as written
+    seed: Optional[int] = None  # fixed seed (reproducible A/B); None: random
+
+
+@dataclass(frozen=True)
+class Plan:
+    """What the engine will do for one request; recorded in song.json."""
+
+    literal: bool
+    instrumental: bool
+    bpm: Optional[int]  # forced from the prompt, else None (the LM chooses)
+    keyscale: Optional[str]
+    duration: float
+    format: str  # "wav" (raw float) or "mp3" (normalized, see audio_export)
+    like: Optional[str] = None
+    lyrics: Optional[str] = None  # the user's, when given; else the LM writes them
+    language: Optional[str] = None  # of the user's lyrics, when the rule names it; else the LM's
+    sources: Dict[str, str] = field(default_factory=dict)
+
+
+def parse_options(raw: Optional[Dict[str, Any]], preset: Preset) -> Options:
+    """Validate the request's ``options`` object.
+
+    Raises:
+        ValueError: For unknown keys, wrong types, a duration outside
+            ``[DURATION_MIN, preset.max_duration]``, an unknown format, a bad song name, or
+            lyrics that are blank, longer than ``LYRICS_MAX``, or given with ``vocals: false``
+            or ``like``.
+    """
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("options must be an object")
+    unknown = set(raw) - set(Options.__dataclass_fields__)
+    if unknown:
+        raise ValueError(f"unknown options {sorted(unknown)}")
+    opts = Options(**raw)
+    if not isinstance(opts.literal, bool):
+        raise ValueError("literal must be true or false")
+    if opts.vocals is not None and not isinstance(opts.vocals, bool):
+        raise ValueError("vocals must be true, false or null")
+    if opts.duration is not None:
+        if isinstance(opts.duration, bool) or not isinstance(opts.duration, (int, float)):
+            raise ValueError("duration must be a number of seconds")
+        if not DURATION_MIN <= opts.duration <= preset.max_duration:
+            raise ValueError(f"duration must be between {DURATION_MIN:g} and "
+                             f"{preset.max_duration:g} s on the {preset.name} preset")
+    if opts.format not in FORMATS:
+        raise ValueError(f"format must be one of {sorted(FORMATS)}")
+    if opts.seed is not None:
+        if isinstance(opts.seed, bool) or not isinstance(opts.seed, int):
+            raise ValueError("seed must be an integer")
+        if not 0 <= opts.seed <= SEED_MAX:
+            raise ValueError(f"seed must be between 0 and {SEED_MAX}")
+    if opts.like is not None and not (isinstance(opts.like, str) and _SONG_NAME.match(opts.like)):
+        raise ValueError("like must be the folder name of a song")
+    if opts.lyrics is not None:
+        if not isinstance(opts.lyrics, str) or not opts.lyrics.strip():
+            raise ValueError("lyrics must be non-empty text")
+        if len(opts.lyrics) > LYRICS_MAX:
+            raise ValueError(f"lyrics must be at most {LYRICS_MAX} characters")
+        if opts.vocals is False:
+            raise ValueError("lyrics cannot be sung with vocals: false")
+        if opts.like is not None:
+            raise ValueError("like reuses that song's lyrics; give one or the other")
+        opts = replace(opts, lyrics=opts.lyrics.strip())
+    return opts
+
+
+def plan_request(prompt: str, opts: Options, preset: Preset) -> Plan:
+    """Apply the default rules to a prompt and its options."""
+    bpm, keyscale = explicit_bpm(prompt), explicit_key(prompt)
+    if opts.lyrics is not None:
+        vocals, vocals_from = True, "lyrics"
+    elif opts.vocals is not None:
+        vocals, vocals_from = opts.vocals, "option"
+    else:
+        vocals, vocals_from = wants_vocals(prompt), "prompt"
+    sources = {
+        "vocals": vocals_from,
+        "bpm": "prompt" if bpm is not None else "lm",
+        "keyscale": "prompt" if keyscale is not None else "lm",
+    }
+    language = lyrics_language(opts.lyrics) if opts.lyrics is not None else None
+    if opts.lyrics is not None:
+        sources["lyrics"] = "user"
+        sources["language"] = "lyrics" if language else "lm"
+    # With own lyrics the prompt is the caption as written: the LM's caption of them lost the
+    # genre asked for ("dark techno" became "pop-punk", bench/n9).
+    literal = opts.literal or opts.lyrics is not None
+    return Plan(
+        literal=literal, instrumental=not vocals, bpm=bpm, keyscale=keyscale,
+        duration=float(opts.duration if opts.duration is not None else preset.default_duration),
+        format=opts.format, like=opts.like, lyrics=opts.lyrics, language=language, sources=sources,
+    )
+
+
+def song_folder(out_dir: str, name: str) -> str:
+    """Absolute folder of an existing song named ``name`` inside ``out_dir``.
+
+    Raises:
+        ValueError: If the name is malformed or the folder is not a song in ``out_dir``.
+    """
+    if not _SONG_NAME.match(name):
+        raise ValueError("like must be the folder name of a song")
+    root = os.path.realpath(out_dir)
+    folder = os.path.realpath(os.path.join(root, name))
+    if os.path.dirname(folder) != root or not os.path.isfile(os.path.join(folder, "song.json")):
+        raise ValueError(f"no song named {name}")
+    return folder

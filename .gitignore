@@ -1,0 +1,30 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.DS_Store
+models/
+outputs/
+*.dmg
+*.zip
+
+# 本机 个人 数据 (资料库 索引 —— 含 本机 绝对路径, 不 进 仓库)
+library.json
+
+# 备份 / 临时
+*.bak
+*.bak-*
+*.tmp
+.pytest_cache/
+
+# ffmpeg 二进制 **不 随 仓库 分发** (LGPL/GPL) —— 装 的时候 从
+# pip 的 imageio-ffmpeg 里 取 一份, 写 个 转发壳 就 行.
+tools/ffmpeg-*
+tools/*.exe
+
+# 桌面 App 编译 产物
+desktop/dist/
+desktop/build/

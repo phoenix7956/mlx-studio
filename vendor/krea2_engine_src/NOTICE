@@ -1,0 +1,40 @@
+Krea-2-Turbo MLX engine
+=======================
+
+This directory contains a modified derivative of the Krea 2 Turbo model,
+redistributed under the Krea 2 Community License Agreement. The full text of
+that agreement is in the LICENSE file next to this notice.
+
+Upstream
+--------
+    krea2_alis_mlx
+    https://github.com/avlp12/krea2_alis_mlx
+
+That project is itself an independent, unofficial MLX port of
+krea/Krea-2-Turbo and is not an official Krea product.
+
+Modifications
+-------------
+The MLX Studio project (https://github.com/ours-mlx/mlx-studio) redistributed
+this source tree with the following changes:
+
+  * the package was renamed from `krea2/` to `krea2_engine/` so it can coexist
+    with the other vendored engines;
+  * the Krea-2 model files (transformer, text encoder, sampler) were adapted
+    to the engine interfaces of this project;
+  * the HF-based text encoder helper `text_encoder_hf.py` was dropped - only
+    the pure-MLX text encoder is shipped;
+  * the weight cache moved to ~/.cache/krea2_alis_mlx and is fetched from
+    Hugging Face at runtime.
+
+This directory contains NO model weights.
+
+Content filtering
+-----------------
+The Krea 2 Community License requires deployments to implement reasonable
+content filtering. The engine ships `safety.py`, an on-by-default pure-MLX
+NSFW image classifier, and the studio UI exposes the toggle. It is enabled
+by default and can be disabled per call or with KREA2_DISABLE_SAFETY=1.
+
+This is an independent, unofficial port. It is NOT an official Krea product
+and is NOT endorsed by or affiliated with Krea.ai, Inc.
