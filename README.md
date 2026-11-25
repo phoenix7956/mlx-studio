@@ -1,5 +1,9 @@
 # MLX Studio
 
+[![Release](https://img.shields.io/github/v/release/phoenix7956/mlx-studio?label=%E6%9C%80%E6%96%B0%E7%89%88)](https://github.com/phoenix7956/mlx-studio/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-9cf2d0)
+
 **跑在你自己 Mac 上的 AI 创作工作室。** 图像、视频、音乐、语音、对话，一个桌面 App 全包，
 模型权重全部本地跑，不上传任何数据。
 
@@ -30,6 +34,12 @@
 ## 安装
 
 要求：**macOS + Apple Silicon**（M 系列芯片）。
+
+### 方式一：下载安装包（推荐）
+
+去 [Releases](https://github.com/phoenix7956/mlx-studio/releases/latest) 下 `.dmg`，拖进「应用程序」。
+
+### 方式二：从源码装
 
 ```bash
 git clone https://github.com/phoenix7956/mlx-studio.git
