@@ -193,7 +193,10 @@ find "$STAGE" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null |
 find "$STAGE" -name "*.pyc" -delete 2>/dev/null || true
 # ACE-Step 权重 软链 —— 指向 打包机 的 绝对路径, 换 台 机器 就 是 死链
 rm -f "$STAGE/内核代码/ace-step-engine/project/checkpoints" 2>/dev/null || true
-( cd "$STAGE" && zip -qry "$OUT/$NAME-$VER.zip" . )
+# zip 要 用 python 的 —— macOS 自带 的 zip 不 打 UTF-8 标志,
+# 别的 机器 (尤其 windows) 解压 出来 中文名 全 是 乱码.
+ZIP_HELPER="$(cd "$(dirname "$0")" && pwd)/zip_utf8.py"
+python3 "$ZIP_HELPER" "$STAGE" "$OUT/$NAME-$VER.zip"
 
 # ---------------------------------------------------------------- 挂载 自检
 MP=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk -F'\t' '{print $NF}')
