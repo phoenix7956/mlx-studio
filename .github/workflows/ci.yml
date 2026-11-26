@@ -44,21 +44,7 @@ jobs:
       - name: 模型目录 (model_catalog.json) 校验
         run: python3 tools/check_catalog.py
 
-      - name: 仓库 不 含 密钥 / 私钥
-        run: |
-          set -e
-          if git grep -nE 'mlx_[A-Za-z0-9]{24,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16}' -- . ; then
-            echo "❌ 仓库 里 出现 了 疑似 密钥 —— 别 push, 先 清掉"
-            exit 1
-          fi
-          echo "✅ 无 密钥 / 私钥"
-
-      - name: 不 含 私人 路径 / 内网 地址
-        run: |
-          set -e
-          if git grep -nE '/Users/<name>|192\.168.<n>.' -- . ; then
-            echo "❌ 仓库 里 出现 了 私人 路径 / 内网 地址"
-            exit 1
-          fi
-          echo "✅ 无 私人 痕迹"
+      - name: 不 含 私人 路径 / 内网 地址 / 疑似 key
+        # 按 规则 认 (不 点名 任何 人): 家目录 / 内网 IP / 疑似 key
+        run: python3 tools/check_private_paths.py
 
