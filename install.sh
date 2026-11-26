@@ -300,7 +300,7 @@ say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 �
 if [ -n "${REMOTE_SSH_TARGET:-}" ] || [ -n "${REMOTE_SSH_HOST:-}" ]; then
   _t="${REMOTE_SSH_TARGET:-}"
   if [ -z "$_t" ] && [ -n "${REMOTE_SSH_HOST:-}" ]; then
-    _t="${REMOTE_SSH_USER:-<you>}@${REMOTE_SSH_HOST}"
+    _t="${REMOTE_SSH_USER:-mlxstudio}@${REMOTE_SSH_HOST}"
   fi
   printf '{"target": "%s"}\n' "$_t" > "$OURS/node.json" 2>/dev/null || true
   say "第二台机: ~/.ours/node.json -> $_t"

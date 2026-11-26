@@ -13,7 +13,7 @@
 import json
 import os
 
-DEFAULT_USER = "<you>"
+DEFAULT_USER = "mlxstudio"   # 兜底 默认 —— 真实 用户名 请 用 环境变量 / ~/.ours/node.json 配
 CFG_PATH = os.path.expanduser("~/.ours/node.json")
 
 
