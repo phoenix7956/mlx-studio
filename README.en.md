@@ -3,6 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/phoenix7956/mlx-studio?label=latest)](https://github.com/phoenix7956/mlx-studio/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-9cf2d0)
+[![CI](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml)
 
 [中文](README.md) | English
 
