@@ -121,13 +121,48 @@ curl http://127.0.0.1:11251/health
 | 能力 | 端点 |
 |---|---|
 | 图像生成 | `POST /v1/images/generations` |
-| 视频生成 | `POST /v1/videos/generations` |
+| 视频生成 | `POST /v1/video/generations` |
+| 批量出片（首尾帧 / 图生视频） | `POST /v1/video/batch` |
+| MV 工作台（多镜头 + 配乐 + 合并） | `POST /v1/video/mv` |
 | 音乐生成 | `POST /v1/audio/music-generations`、`POST /v1/music/generate` |
 | 语音合成 | `POST /v1/audio/speech` |
-| 音色克隆 / 配音 | `POST /v1/voices/clone`、`POST /v1/voices/dub` |
+| 音色克隆 / 合成 / 批量配音 | `POST /v1/voices`、`POST /v1/voices/speak`、`POST /v1/voices/dub` |
 | 对话 | `POST /v1/chat/completions` |
 
 完整参数面见 `api_full.py`，契约回归见 `smoke_contract.py`（37 条）。
+
+## 接入 Agent（MCP）
+
+装完就能挂 —— Codex、Claude Code、Cursor、Gemini CLI、OpenCode 都支持 MCP，
+Studio 自带一个 **MCP server**，让 agent 直接调本机的出图 / 出片 / 出歌。
+
+```bash
+./install.sh          # 装 完 自动 把 Studio 挂 到 本机 已装 的 agent 上
+~/.ours/bin/mlx-mcp --check    # 看 挂 上 没 / 内核 在 不 在
+```
+
+挂上之后 agent 里会多一组 `mlx-studio` 工具：
+
+| 工具 | 干什么 |
+|---|---|
+| `studio_status` | 内核状态、出片走本机还是远端、剩多少内存 |
+| `list_models` / `load_model` / `unload_model` | 模型清单、加载、卸载 |
+| `list_output_images` / `list_output_audio` / `list_outputs` | 翻产物、挑首尾帧素材、挑配乐 |
+| `submit_image` / `submit_music` / `submit_video_batch` / `submit_mv` | 提交生成任务 |
+| `job_status` | 查任务进度 |
+
+出图要几分钟、出片更久，所以这些都做成 **异步**：提交完返回一个 `job_id`，
+过一会儿用 `job_status` 查。任务跑在独立进程里，**agent 中途退出也不会打断**。
+
+想手动接：
+
+```bash
+python3 tools/register_mcp.py --print   # 打印 手抄 版 配置
+python3 tools/register_mcp.py --check   # 看 状态
+python3 tools/register_mcp.py --remove  # 摘掉
+```
+
+细节见 [docs/Agent接入.md](docs/Agent接入.md)。
 
 ## 目录结构
 

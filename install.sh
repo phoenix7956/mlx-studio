@@ -294,6 +294,43 @@ FFW
 chmod +x "$OURS/bin/ffmpeg" 2>/dev/null || true
 say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 压 mp4 用)"
 
+# ---------------------------------------------------------------- MCP 接入
+# agent (Codex / Claude Code / Cursor / Gemini / OpenCode) 直接 驱动 本机 Studio.
+# MCP server 是 一 个 **薄壳** —— 活 都 交给 内核 干, 自己 不 加载 模型, 不 占 显存.
+if ! "$PY" -c "import mcp" >/dev/null 2>&1; then
+  say "装 mcp (agent 接入 用) …"
+  "$PY" -m pip install -q "mcp>=2.0" -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    || "$PY" -m pip install -q "mcp>=2.0" \
+    || warn "mcp 装 失败 —— agent 接入 暂不可用, 其它 功能 不受影响"
+fi
+
+mkdir -p "$OURS/bin"
+cat > "$OURS/bin/mlx-mcp" <<'MCPW'
+#!/bin/bash
+# MLX Studio —— MCP server 启动器 (给 Codex / Claude Code / Cursor 用).
+#
+# stdout 必须 干净 (MCP 走 stdio) —— 所以 所有 话 都 写 stderr.
+REAL_HOME="$HOME"
+if [ ! -d "$REAL_HOME/.ours/mlx_server" ]; then
+  DSCL_HOME="$(dscl . -read "/Users/$(whoami)" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+  [ -d "$DSCL_HOME" ] && REAL_HOME="$DSCL_HOME"
+fi
+SCRIPT="$REAL_HOME/.ours/mlx_server/mcp_server.py"
+[ -f "$SCRIPT" ] || { echo "MLX Studio MCP: 找不到 $SCRIPT —— 先 跑 install.sh" >&2; exit 127; }
+# 挑 一个 **带 mcp sdk** 的 python —— 别 挑 到 没 装 的 那 个 venv.
+PY=""
+for c in "$REAL_HOME/.venvs/mlxstudio/bin/python" "$REAL_HOME/.venvs/mtx/bin/python" \
+         "$REAL_HOME/.venvs/h3m3/bin/python" "$REAL_HOME/.venvs/h3/bin/python"; do
+  [ -x "$c" ] || continue
+  "$c" -c "import mcp" >/dev/null 2>&1 || continue
+  PY="$c"; break
+done
+[ -n "$PY" ] || { echo "MLX Studio MCP: 没 装 mcp sdk —— 跑 install.sh" >&2; exit 127; }
+exec "$PY" "$SCRIPT" "$@"
+MCPW
+chmod +x "$OURS/bin/mlx-mcp" 2>/dev/null || true
+say "MCP 启动器: ~/.ours/bin/mlx-mcp"
+
 # 「第二台机」(出片 / 出图 节点) 的 连接 配置 ——
 #   开源版 不 写死 任何 地址. 装 的时候 带上 REMOTE_SSH_TARGET (或 REMOTE_SSH_HOST)
 #   就 写 进 ~/.ours/node.json; 不 带 就 不写 (本机 独立 跑 用 不 到).
@@ -553,6 +590,18 @@ if [ "$AGENT" = "1" ]; then
   fi
 fi
 
+# ---------------------------------------------------------------- agent 接入
+# 装 完 直接 把 Studio 挂 到 本机 **已经 装 了 的** agent 上 —— 不用 手抄 配置.
+#   Codex        ~/.codex/config.toml
+#   Claude Code  ~/.claude.json
+#   Cursor       ~/.cursor/mcp.json
+#   Gemini CLI   ~/.gemini/settings.json
+#   OpenCode     ~/.config/opencode/config.json
+if "$PY" -c "import mcp" >/dev/null 2>&1 && [ -f "$RUNTIME/tools/register_mcp.py" ]; then
+  say "挂 agent (MCP) …"
+  "$PY" "$RUNTIME/tools/register_mcp.py" --command "$OURS/bin/mlx-mcp" 2>&1 | sed 's/^/   /' || true
+fi
+
 cat <<EOF
 
 【装 好 了】
@@ -569,6 +618,11 @@ cat <<EOF
 
 【API】
   http://127.0.0.1:$PORT/v1/chat/completions   (OpenAI 兼容)
+
+【agent 接入 (MCP)】
+  已 挂 上 的 agent 重开 就 能 看到 "mlx-studio" 工具 (出图/出片/出歌/模型).
+  状态: ~/.ours/bin/mlx-mcp --check
+  自检: ~/.ours/bin/mlx-mcp --check
 
 【停 内核】
   launchctl unload "$PLIST"

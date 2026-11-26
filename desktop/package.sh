@@ -126,10 +126,39 @@ osascript -e 'tell application "Terminal" to close (every window whose name cont
 CMD
 chmod +x "$STAGE/安装到本机.command"
 
+# ---------------------------------------------------------------- 挂 Agent (MCP)
+cat > "$STAGE/注册到 Agent.command" <<'CMD'
+#!/bin/bash
+cd "$(dirname "$0")"
+echo "== 把 MLX Studio 挂 到 本机 已装 的 agent (Codex / Claude Code / Cursor …) =="
+REG="内核代码/tools/register_mcp.py"
+[ -f "$REG" ] || REG="内核代码/register_mcp.py"
+if [ ! -f "$REG" ]; then
+  echo "❌ 找不到 注册 脚本 ($REG) —— 先 双击「安装到本机.command」"
+  read -r -p "按 回车 关闭 …" _ || true
+  exit 1
+fi
+PY=""
+for c in "$HOME/.venvs/mlxstudio/bin/python" "$HOME/.venvs/mtx/bin/python" \
+         "$HOME/.venvs/h3m3/bin/python" "$HOME/.venvs/h3/bin/python" "$(command -v python3)"; do
+  [ -x "$c" ] && { PY="$c"; break; }
+done
+[ -n "$PY" ] || { echo "❌ 找不到 python3"; read -r -p "按 回车 关闭 …" _ || true; exit 1; }
+"$PY" "$REG" --command "$HOME/.ours/bin/mlx-mcp"
+echo
+echo "重开 agent 就 能 看到 mlx-studio 工具 (出图 / 出片 / 出歌)."
+read -r -p "按 回车 关闭 这个 窗口 …" _ || true
+osascript -e 'tell application "Terminal" to close (every window whose name contains "注册到 Agent")' \
+  >/dev/null 2>&1 || osascript -e 'tell application "Terminal" to close front window' \
+  >/dev/null 2>&1 || true
+CMD
+chmod +x "$STAGE/注册到 Agent.command"
+
 # ---------------------------------------------------------------- 自检 内容
 MISS=""
 for f in install.sh clean.sh model_catalog.json ui/console.html tools/fetch_h3_mlx.py video_batch.py video_mv.py \
-         msdl.py server.py voice_studio.py image_engine_mflux.py music_workbench.py; do
+         msdl.py server.py voice_studio.py image_engine_mflux.py music_workbench.py \
+         mcp_server.py tools/register_mcp.py; do
   [ -e "$STAGE/内核代码/$f" ] || [ -e "$STAGE/$f" ] || MISS="$MISS $f"
 done
 [ -d "$STAGE/内核代码/krea2_engine_src" ] || MISS="$MISS krea2_engine_src"
@@ -163,6 +192,9 @@ for f in install.sh "安装到本机.command" "安装说明.txt"; do
   [ -e "$MP/$f" ] || { echo "❌ DMG 里 缺 $f" >&2; exit 1; }
 done
 [ -e "$MP/清理旧文件.command" ] || { echo "❌ DMG 里 缺 清理旧文件.command" >&2; exit 1; }
+[ -e "$MP/注册到 Agent.command" ] || { echo "❌ DMG 里 缺 注册到 Agent.command" >&2; exit 1; }
+[ -e "$MP/内核代码/mcp_server.py" ] || { echo "❌ DMG 里 缺 mcp_server.py (agent 接入)" >&2; exit 1; }
+[ -e "$MP/内核代码/tools/register_mcp.py" ] || { echo "❌ DMG 里 缺 register_mcp.py" >&2; exit 1; }
 [ -d "$MP/内核代码" ] || { echo "❌ DMG 里 缺 内核代码/" >&2; exit 1; }
 [ -d "$MP/内核代码/krea2_engine_src" ] || { echo "❌ DMG 里 缺 出图引擎" >&2; exit 1; }
 [ -d "$MP/内核代码/minimax-h3_mlx_src" ] || { echo "❌ DMG 里 缺 出片引擎" >&2; exit 1; }

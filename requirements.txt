@@ -27,3 +27,6 @@ imageio-ffmpeg
 # 出图 第二 套 内核 (Z-Image-Turbo / MOSS-Image-SFT)
 mflux>=0.23.0
 
+# agent 接入 (MCP) —— Codex / Claude Code / Cursor 直接 驱动 本机 Studio
+mcp>=2.0
+
