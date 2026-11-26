@@ -297,10 +297,20 @@ say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 �
 # ---------------------------------------------------------------- MCP 接入
 # agent (Codex / Claude Code / Cursor / Gemini / OpenCode) 直接 驱动 本机 Studio.
 # MCP server 是 一 个 **薄壳** —— 活 都 交给 内核 干, 自己 不 加载 模型, 不 占 显存.
-if ! "$PY" -c "import mcp" >/dev/null 2>&1; then
-  say "装 mcp (agent 接入 用) …"
-  "$PY" -m pip install -q "mcp>=2.0" -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    || "$PY" -m pip install -q "mcp>=2.0" \
+#
+# **单独 开 一个 venv** (~/.venvs/mlx-mcp) —— 不 装进 Studio 的 venv.
+#   原因: mcp 会 带 一 些 自己的 依赖 (pydantic / httpx / starlette …).
+#   装进 Studio 的 venv, pip 有 可能 顺手 升 级 那些 包, 把 正在 跑 的 内核 弄 出 问题.
+#   独立 venv = 零 污染 —— 装 / 升级 / 卸 MCP 都 不 碰 Studio 一 下.
+VENV_MCP="$REAL_HOME/.venvs/mlx-mcp"
+if [ ! -x "$VENV_MCP/bin/python" ]; then
+  say "建 MCP 专用 venv (~/.venvs/mlx-mcp) …"
+  "$BASE" -m venv "$VENV_MCP" 2>/dev/null || warn "建 venv 失败 —— agent 接入 可能 装 不上"
+fi
+if [ -x "$VENV_MCP/bin/python" ] && ! "$VENV_MCP/bin/python" -c "import mcp" >/dev/null 2>&1; then
+  say "装 mcp (agent 接入 用, 独立 venv) …"
+  "$VENV_MCP/bin/python" -m pip install -q "mcp>=2.0" -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    || "$VENV_MCP/bin/python" -m pip install -q "mcp>=2.0" \
     || warn "mcp 装 失败 —— agent 接入 暂不可用, 其它 功能 不受影响"
 fi
 
@@ -317,9 +327,10 @@ if [ ! -d "$REAL_HOME/.ours/mlx_server" ]; then
 fi
 SCRIPT="$REAL_HOME/.ours/mlx_server/mcp_server.py"
 [ -f "$SCRIPT" ] || { echo "MLX Studio MCP: 找不到 $SCRIPT —— 先 跑 install.sh" >&2; exit 127; }
-# 挑 一个 **带 mcp sdk** 的 python —— 别 挑 到 没 装 的 那 个 venv.
+# 挑 一个 **带 mcp sdk** 的 python —— 优先 MCP 专用 venv (不 污染 Studio 的 依赖).
 PY=""
-for c in "$REAL_HOME/.venvs/mlxstudio/bin/python" "$REAL_HOME/.venvs/mtx/bin/python" \
+for c in "$REAL_HOME/.venvs/mlx-mcp/bin/python" "$REAL_HOME/.venvs/mlxstudio/bin/python" \
+         "$REAL_HOME/.venvs/mtx/bin/python" \
          "$REAL_HOME/.venvs/h3m3/bin/python" "$REAL_HOME/.venvs/h3/bin/python"; do
   [ -x "$c" ] || continue
   "$c" -c "import mcp" >/dev/null 2>&1 || continue
@@ -597,9 +608,10 @@ fi
 #   Cursor       ~/.cursor/mcp.json
 #   Gemini CLI   ~/.gemini/settings.json
 #   OpenCode     ~/.config/opencode/config.json
-if "$PY" -c "import mcp" >/dev/null 2>&1 && [ -f "$RUNTIME/tools/register_mcp.py" ]; then
+if [ -x "$VENV_MCP/bin/python" ] && "$VENV_MCP/bin/python" -c "import mcp" >/dev/null 2>&1 \
+   && [ -f "$RUNTIME/tools/register_mcp.py" ]; then
   say "挂 agent (MCP) …"
-  "$PY" "$RUNTIME/tools/register_mcp.py" --command "$OURS/bin/mlx-mcp" 2>&1 | sed 's/^/   /' || true
+  "$VENV_MCP/bin/python" "$RUNTIME/tools/register_mcp.py" --command "$OURS/bin/mlx-mcp" 2>&1 | sed 's/^/   /' || true
 fi
 
 cat <<EOF

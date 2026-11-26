@@ -27,6 +27,11 @@ MCP server 是个**薄壳**：自己不加载模型、不占显存、不做推�
 4. 扫本机**已经装了**的 agent，把 `mlx-studio` 加进去（只改已存在的配置，
    不给没装的 agent 乱建目录；每次改都先备份 `.bak-<时间戳>`）
 
+> `mcp` 装在**独立的 venv**（`~/.venvs/mlx-mcp`）里，不进 Studio 的 venv。
+> mcp 会带自己的依赖（pydantic / httpx / starlette…），装进 Studio 那个 venv，
+> pip 有可能顺手升级那些包、把正在跑的内核弄出毛病。独立 venv = 零污染。
+> 启动器 `~/.ours/bin/mlx-mcp` 会自己挑那个带 mcp sdk 的 python。
+
 | Agent | 配置位置 | 写法 |
 |---|---|---|
 | Codex | `~/.codex/config.toml` | `[mcp_servers.mlx-studio]` |

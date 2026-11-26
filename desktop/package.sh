@@ -139,7 +139,7 @@ if [ ! -f "$REG" ]; then
   exit 1
 fi
 PY=""
-for c in "$HOME/.venvs/mlxstudio/bin/python" "$HOME/.venvs/mtx/bin/python" \
+for c in "$HOME/.venvs/mlx-mcp/bin/python" "$HOME/.venvs/mlxstudio/bin/python" "$HOME/.venvs/mtx/bin/python" \
          "$HOME/.venvs/h3m3/bin/python" "$HOME/.venvs/h3/bin/python" "$(command -v python3)"; do
   [ -x "$c" ] && { PY="$c"; break; }
 done
