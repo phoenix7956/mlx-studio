@@ -1855,7 +1855,7 @@ async function renderModels() {
     const page = r.download_url || '';
     // 删 权重 (磁盘 上 的 文件夹) —— 只 给 有 本地 权重 的 模型, 不可逆
     return `<tr data-mid="${esc(r.id)}" data-state="${esc(r.state || '')}"><td><div>${esc(r.name || r.id)}</div><div class="mono model-id" data-copy="${esc(r.id)}" title="点一下 复制 model id">${esc(r.id)}</div>
-      ${page ? `<div class="mono model-src"><a href="${esc(page)}" target="_blank" rel="noopener" title="${esc(page)}">↗ ${esc(r.repo || '下载页')}</a></div>` : ''}</td>
+      ${page ? `<div class="mono model-src"><a href="${esc(page)}" target="_blank" rel="noopener" title="下载页 · ${esc(page)}">${esc(r.repo || '下载页')}</a></div>` : ''}</td>
       <td><span class="badge ${st}">${esc(r.state)}</span></td>
       <td>${licenseBadgeHTML(r)}</td>
       <td><div class="row-actions">${modelActsHTML(r)}</div></td></tr>`;
