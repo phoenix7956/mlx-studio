@@ -52,8 +52,8 @@ def _node():
     """返回 (user, host) —— 开源版 不 写死 任何 机器 的 地址."""
     if remote_node is not None:
         return remote_node.user(), remote_node.host()
-    return (os.environ.get("REMOTE_SSH_USER", os.environ.get("REMOTE_SSH_USER", "")),
-            os.environ.get("REMOTE_SSH_HOST", os.environ.get("REMOTE_SSH_HOST", "")))
+    return (os.environ.get("REMOTE_SSH_USER", ""),
+            os.environ.get("REMOTE_SSH_HOST", ""))
 
 
 NODE_USER, NODE_HOST = _node()
@@ -425,7 +425,7 @@ def submit(srv, frames, prompts, seconds=5, width=832, height=480, steps=8,
     if music and not music_path:
         return {"ok": False, "error": "找 不 到 那 首 配乐"}
     node = (node or "local").lower()
-    if node not in ("local", "remote", "remote"):
+    if node not in ("local", "remote"):
         node = "local"
     shots = len(frames) - 1
     job_id = "vmv_%d" % int(time.time() * 1000)
@@ -448,7 +448,7 @@ def submit(srv, frames, prompts, seconds=5, width=832, height=480, steps=8,
             shot_dir = os.path.join(out_dir, "镜头")
             os.makedirs(shot_dir, exist_ok=True)
             clips = []
-            if node in ("remote", "remote"):
+            if node == "remote":
                 items = []
                 for i in range(shots):
                     prompt = prompts[min(i, len(prompts) - 1)]

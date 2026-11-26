@@ -297,13 +297,12 @@ say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 �
 # 「第二台机」(出片 / 出图 节点) 的 连接 配置 ——
 #   开源版 不 写死 任何 地址. 装 的时候 带上 REMOTE_SSH_TARGET (或 REMOTE_SSH_HOST)
 #   就 写 进 ~/.ours/node.json; 不 带 就 不写 (本机 独立 跑 用 不 到).
-#   旧 名 (REMOTE_SSH_*) 仍然 认 —— 老 脚本 / 老 配置 不用 改.
-_rt="${REMOTE_SSH_TARGET:-${REMOTE_SSH_TARGET:-}}"
-_rh="${REMOTE_SSH_HOST:-${REMOTE_SSH_HOST:-}}"
+_rt="${REMOTE_SSH_TARGET:-}"
+_rh="${REMOTE_SSH_HOST:-}"
 if [ -n "$_rt" ] || [ -n "$_rh" ]; then
   _t="$_rt"
   if [ -z "$_t" ] && [ -n "$_rh" ]; then
-    _t="${REMOTE_SSH_USER:-${REMOTE_SSH_USER:-mlxstudio}}@$_rh"
+    _t="${REMOTE_SSH_USER:-mlxstudio}@$_rh"
   fi
   printf '{"target": "%s"}\n' "$_t" > "$OURS/node.json" 2>/dev/null || true
   say "第二台机: ~/.ours/node.json -> $_t"
@@ -453,7 +452,6 @@ ENVF="$RUNTIME/env.sh"
   # ~/.ours/bin (install 放 的). 两个 都 加进 PATH, 免得 抽帧/预览 静默 失败.
   echo "export PATH=\"/opt/homebrew/bin:$OURS/bin:/usr/local/bin:\$PATH\""
   echo "export MLX_NODE_ROLE=local"
-  echo "export MINEPROXY_NODE=local"   # 老 内核 认 这 个
   # 一 首 歌 最长 多少 秒 (引擎 硬 上限) —— 128G 机器 给 到 480
   echo "export ACE_MAX_DURATION=\${ACE_MAX_DURATION:-480}"
 } > "$ENVF"

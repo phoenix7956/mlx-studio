@@ -13,7 +13,7 @@ def _target():
         t = remote_node.target()
         if t:
             return t
-    return os.environ.get("REMOTE_SSH_TARGET", os.environ.get("REMOTE_SSH_TARGET", ""))
+    return os.environ.get("REMOTE_SSH_TARGET", "")
 
 
 def _ffmpeg():

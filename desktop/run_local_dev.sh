@@ -49,5 +49,5 @@ PY="$(pick_file \
   "$HOME/.venvs/mlxstudio/bin/python")"
 PORT="${1:-11251}"
 export MLX_NODE_ROLE=local
-echo "[run_local_dev] :$PORT 全能力起 (视频/图/歌/LLM), 定位由使用者定, 内核同 远端机"
+echo "[run_local_dev] :$PORT 全能力起 (视频/图/歌/LLM), 定位由使用者定, 内核 同 一 份"
 exec $PY server.py --port "$PORT"

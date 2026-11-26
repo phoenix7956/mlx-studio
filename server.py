@@ -15,8 +15,7 @@ except Exception:
     mx = None
 
 IDLE_S = 30*60
-NODE = os.environ.get("MLX_NODE_ROLE", os.environ.get("MINEPROXY_NODE","remote"))
-# NODE = local (本 机) / remote (第二台机). 旧 名 MINEPROXY_NODE 仍 认.
+NODE = os.environ.get("MLX_NODE_ROLE", "remote")   # local (本 机) / remote (第二台机)
 ROUTE = {"video":"remote","image":"remote","music":"local"}
 
 # 生成 产物 的 文件名 前缀 / 后缀 -> 素材库 的 类型

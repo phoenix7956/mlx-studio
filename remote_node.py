@@ -9,7 +9,6 @@
 
 读 不 到 就 返回 "" —— 本机 独立 跑 时 用 不 到 第二台机.
 
-旧 名 (``REMOTE_SSH_*`` / ``~/.ours/node.json``) 仍然 认 —— 老 配置 不 用 改.
 """
 
 import json
@@ -17,15 +16,13 @@ import os
 
 DEFAULT_USER = "mlxstudio"   # 兜底 默认 —— 真实 用户名 请 用 环境变量 / ~/.ours/node.json 配
 CFG_PATH = os.path.expanduser("~/.ours/node.json")
-LEGACY_CFG_PATH = os.path.expanduser("~/.ours/node.json")   # 老 配置 (兼容)
 
 
 def _from_cfg():
     try:
-        path = CFG_PATH if os.path.isfile(CFG_PATH) else LEGACY_CFG_PATH
-        if not os.path.isfile(path):
+        if not os.path.isfile(CFG_PATH):
             return ""
-        with open(path, "r", encoding="utf-8") as f:
+        with open(CFG_PATH, "r", encoding="utf-8") as f:
             d = json.load(f)
         t = str(d.get("target") or d.get("host") or "").strip()
         if t and "@" not in t:
@@ -38,13 +35,12 @@ def _from_cfg():
 
 def target():
     """返回 "user@host"; 没有 配置 就 返回 ""."""
-    t = (os.environ.get("REMOTE_SSH_TARGET") or os.environ.get("REMOTE_SSH_TARGET") or "").strip()
+    t = (os.environ.get("REMOTE_SSH_TARGET") or "").strip()
     if t:
         return t if "@" in t else f"{DEFAULT_USER}@{t}"
-    host = (os.environ.get("REMOTE_SSH_HOST") or os.environ.get("REMOTE_SSH_HOST") or "").strip()
+    host = (os.environ.get("REMOTE_SSH_HOST") or "").strip()
     if host:
-        user = (os.environ.get("REMOTE_SSH_USER") or os.environ.get("REMOTE_SSH_USER")
-                or DEFAULT_USER).strip() or DEFAULT_USER
+        user = (os.environ.get("REMOTE_SSH_USER") or DEFAULT_USER).strip() or DEFAULT_USER
         return f"{user}@{host}"
     return _from_cfg()
 
