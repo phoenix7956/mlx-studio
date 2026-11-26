@@ -113,7 +113,7 @@ MLX Serve Studio.app」，不会静默失败。
 
 ## 许可
 
-MCP server 本身是本项目代码，跟仓库同许可（MIT）。
+MCP server 本身是本项目代码，跟仓库同许可（Apache-2.0，允许商业使用）。
 它**只调用**模型，不分发也不附带任何权重 —— 权重还是各自作者按自己的许可发。
 用 MiniMax-H3 做商业产品，界面要显著标注「MiniMax H3」（见
 `vendor/minimax-h3_mlx_src/MINIMAX-H3-COMMUNITY-LICENSE.txt`）。

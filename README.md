@@ -1,7 +1,7 @@
 # MLX Studio
 
 [![Release](https://img.shields.io/github/v/release/phoenix7956/mlx-studio?label=%E6%9C%80%E6%96%B0%E7%89%88)](https://github.com/phoenix7956/mlx-studio/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-9cf2d0)
 [![CI](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml)
 
@@ -10,7 +10,7 @@
 **跑在你自己 Mac 上的 AI 创作工作室。** 图像、视频、音乐、语音、对话，一个桌面 App 全包，
 模型权重全部本地跑，不上传任何数据。
 
-独立实现，不依赖任何闭源 App。MIT 许可。
+独立实现，不依赖任何闭源 App。Apache-2.0 许可，允许商业使用。
 
 ---
 
@@ -194,7 +194,20 @@ smoke_*.py           回归测试
 
 ## 许可
 
-本项目 **MIT**（见 `LICENSE`）。
+本项目采用 **Apache License 2.0**（见 [`LICENSE`](LICENSE)），**允许商业使用**：
+可自由使用、复制、修改、合并、发布、分发、再授权和销售，商用**不需要**额外授权或付费。
+
+相比 MIT，Apache-2.0 额外提供**明确的专利授权**：贡献者授予永久性的、全球性的专利许可，
+覆盖其贡献部分——这能降低被第三方专利诉讼打断的风险，是我们选它的唯一实质理由。
+
+本项目**不含任何禁止商用的条款**。你要做的只有两件事：
+
+1. 保留版权声明与许可原文（Apache-2.0 §4）；
+2. 随分发附带 [`NOTICE`](NOTICE)。
+
+> ⚠️ **商标不在授权范围内。** 「MLX Studio」这个名称和 Logo 归项目方所有，
+> Apache-2.0 只授权代码使用。第三方名称与商标（Apple、Apple Silicon、MLX、MiniMax、
+> Krea、ACE-Step 等）归各自权利人所有，这里仅用于标识兼容性。
 
 第三方代码各自独立授权，见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)：
 
@@ -206,6 +219,10 @@ smoke_*.py           回归测试
 | `ace-step-engine/` | MIT（ACEStep / Fabrizio Salmi）+ nano-vllm 的 MIT |
 
 `vendor/` 下的两个目录带自己的 `LICENSE` 和 `NOTICE`，改动过的文件在里面列明了。
+
+**模型权重不在本仓库内**，由使用者自行从上游下载，遵循各自上游协议，
+与本项目代码的许可相互独立。逐个模型的权重许可见
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 的权重许可表。
 
 ## 独立实现声明
 

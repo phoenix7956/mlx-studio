@@ -1,0 +1,43 @@
+MLX Studio
+Copyright (c) 2026 MLX Studio contributors
+
+This product includes software developed by the MLX Studio contributors.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components redistributed in this repository
+--------------------------------------------------------------------------------
+
+Each component below keeps its own license. Their full texts are shipped next
+to the code, and the complete index lives in THIRD_PARTY_NOTICES.md.
+
+  vendor/minimax-h3_mlx_src/  -  Apache License 2.0
+    Derived from PipeNetwork/minimax-h3-mlx (https://github.com/PipeNetwork/minimax-h3-mlx)
+    Changes are listed in vendor/minimax-h3_mlx_src/NOTICE
+
+  vendor/krea2_engine_src/  -  Krea 2 Community License Agreement
+    Derived from avlp12/krea2_alis_mlx (https://github.com/avlp12/krea2_alis_mlx)
+    Changes are listed in vendor/krea2_engine_src/NOTICE
+
+  vendor_src/mlx_video/  -  MIT License
+    Derived from PrinceCanuma/mlx-video (https://github.com/PrinceCanuma/mlx-video)
+
+  ace-step-engine/  -  MIT License
+    Derived from ACEStep/ACE-Step (https://github.com/ACEStep/ACE-Step)
+    Includes the MLX port by Fabrizio Salmi and nano-vllm by Xingkai Yu
+
+Apple MLX (https://github.com/ml-explore/mlx) is used at runtime and is not
+redistributed here. It is licensed under the MIT License.
+
+Model weights are NOT redistributed in this repository. They are downloaded at
+runtime from their upstream hosts and remain under their own licenses; see
+THIRD_PARTY_NOTICES.md for the per-model list.
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+"MLX Studio" and the MLX Studio logo are marks of the MLX Studio project and
+are not licensed under the Apache License. Third-party names and trademarks,
+including Apple, Apple Silicon, MLX, MiniMax, Krea, ACE-Step and others, belong
+to their respective owners and are used only to identify compatibility.

@@ -1,7 +1,7 @@
 # MLX Studio
 
 [![Release](https://img.shields.io/github/v/release/phoenix7956/mlx-studio?label=latest)](https://github.com/phoenix7956/mlx-studio/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-9cf2d0)
 [![CI](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/phoenix7956/mlx-studio/actions/workflows/ci.yml)
 
@@ -10,7 +10,7 @@
 **An AI creation studio that runs on your own Mac.** Images, video, music, speech and chat in
 one desktop app. Every model runs locally — nothing is uploaded.
 
-Clean-room implementation. No closed-source app required. MIT licensed.
+Clean-room implementation. No closed-source app required. Apache-2.0 licensed, commercial use allowed.
 
 ---
 
@@ -170,7 +170,24 @@ smoke_*.py           regression tests
 
 ## Licence
 
-This project is **MIT** (see `LICENSE`).
+This project is licensed under the **Apache License 2.0** (see [`LICENSE`](LICENSE)) and
+**allows commercial use**: you may use, copy, modify, merge, publish, distribute,
+sublicense and sell it. Commercial use needs **no extra licence or fee**.
+
+Compared with MIT, Apache-2.0 adds an **explicit patent grant**: contributors grant a
+perpetual, worldwide patent licence covering their contributions, which reduces the risk of
+being interrupted by a third-party patent suit. That is the only substantive reason for
+choosing it.
+
+There is **no non-commercial clause** here. Your only obligations are:
+
+1. keep the copyright notice and the licence text (Apache-2.0 §4);
+2. ship [`NOTICE`](NOTICE) with redistributions.
+
+> ⚠️ **Trademarks are not licensed.** The name "MLX Studio" and its logo belong to the
+> project; Apache-2.0 covers code only. Third-party names and trademarks (Apple,
+> Apple Silicon, MLX, MiniMax, Krea, ACE-Step, ...) belong to their respective owners
+> and are used only to identify compatibility.
 
 Third-party code keeps its own licence — see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md):
 
@@ -183,6 +200,10 @@ Third-party code keeps its own licence — see [`THIRD_PARTY_NOTICES.md`](THIRD_
 
 The two directories under `vendor/` ship their own `LICENSE` and `NOTICE`, listing every file
 we modified.
+
+**Model weights are not in this repository.** You download them from their upstream hosts and
+they stay under their own upstream terms, independent of this project's code licence.
+See the weight table in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Independent implementation
 
