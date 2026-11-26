@@ -1408,7 +1408,8 @@ function addMsg(role, text, extra, replay) {
 const TOOLS = [
   { type: 'function', function: { name: 'generate_image', description: '生成一张图片',
       parameters: { type: 'object', properties: { prompt: { type: 'string' },
-        size: { type: 'string', description: 'WIDTHxHEIGHT, 256-2048 per side' } } } } },
+        size: { type: 'string', description: 'WIDTHxHEIGHT, 256-3072 per side '
+          + '(按 模型: MOSS / Z-Image 到 3072, Krea-2 只 到 2048)' } } } } },
   { type: 'function', function: { name: 'edit_image', description: '编辑一张图片',
       parameters: { type: 'object', properties: { prompt: { type: 'string' },
         size: { type: 'string' } } } } },
@@ -2334,17 +2335,19 @@ function imageCompareHTML(cur) {
       state: m.state,
       pref: !!m.preferred,
       prefNote: m.preferred_note || '',
+      maxSize: m.max_size || 2048,
     }))
     .sort((a, b) => (a.bench || 1e9) - (b.bench || 1e9));
   if (!rows.length) return '';
   const cfg = r => r.def && r.def !== r.max ? `${r.max} 步 (默认 ${r.def})` : `${r.max} 步`;
   return `<div class="img-compare">
     <table>
-      <thead><tr><th>模型</th><th>上限配置</th><th>4MP 实测</th><th>许可</th></tr></thead>
+      <thead><tr><th>模型</th><th>上限配置</th><th>4MP 实测</th><th>最大画布</th><th>许可</th></tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.id === cur ? 'on' : ''}">
         <td>${esc(r.name)}${r.pref ? ' <span class="badge free">主力</span>' : ''}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
         <td class="num">${esc(cfg(r))}</td>
         <td class="num">${r.bench ? r.bench + 's' : '—'}</td>
+        <td class="num">${r.maxSize}×${r.maxSize}</td>
         <td class="lic">${esc(r.lic || '—')}</td>
       </tr>`).join('')}</tbody>
     </table>
@@ -2625,10 +2628,16 @@ function imgModelCfg() {
   const m = (state.models || []).find(x => x.id === mid) || {};
   const max = m.max_steps || 32;
   const def = Math.min(m.default_steps || 4, max);
-  return { mid, max, def, name: m.name || mid };
+  // 画布 上限 **按 模型 走** —— MOSS / Z-Image 能 到 3072, Krea-2 只 到 2048.
+  const maxSize = m.max_size || 2048;
+  return { mid, max, def, name: m.name || mid, maxSize,
+           maxSizeNote: m.max_size_note || '' };
 }
 const IMG_SIZES = [[1024, 1024], [512, 512], [1152, 896], [896, 1152], [1216, 832],
   [832, 1216], [1344, 768], [768, 1344], [1536, 640]];
+// 大画布 —— 只 在 模型 支持 的 时候 才 给 (Krea-2 只 到 2048).
+// 3072² 是 9.4MP, 光 解码 就 要 好几 分钟 —— MOSS 4 步 实测 ~10 分钟.
+const IMG_SIZES_BIG = [[2048, 2048], [3072, 3072], [3072, 1536], [1536, 3072]];
 const VID_SIZES = [[704, 448], [448, 704], [768, 512], [512, 768], [1024, 576],
   [576, 1024], [1600, 896], [896, 1600], [1920, 1088], [1088, 1920]];
 const FPS = 24;
@@ -2703,11 +2712,12 @@ function renderImage() {
       </section>
       <section class="image-section">
         <div class="image-canvas">
-          <label>宽度<input type="number" id="i-w" value="1024" min="256" max="2048" step="16"></label>
+          <label>宽度<input type="number" id="i-w" value="1024" min="256" max="${mc.maxSize}" step="16"></label>
           <span>×</span>
-          <label>高度<input type="number" id="i-h" value="1024" min="256" max="2048" step="16"></label>
-          ${presetMenu('i-preset', IMG_SIZES)}
+          <label>高度<input type="number" id="i-h" value="1024" min="256" max="${mc.maxSize}" step="16"></label>
+          ${presetMenu('i-preset', IMG_SIZES.concat(IMG_SIZES_BIG.filter(s => Math.max(s[0], s[1]) <= mc.maxSize)))}
         </div>
+        <p class="field-note">这个 模型 画布 上限 ${mc.maxSize}×${mc.maxSize}${mc.maxSizeNote ? ' · ' + esc(mc.maxSizeNote) : ''}</p>
       </section>
       <details>
         <summary>高级选项</summary>

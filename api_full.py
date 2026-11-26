@@ -486,6 +486,10 @@ def model_entries(srv):
             # 主力 模型 (出图 主力 = MOSS) —— 界面 默认 选 它, API 不 指定 也 用 它
             "preferred": bool(it.get("preferred")),
             "preferred_note": it.get("preferred_note") or "",
+            # 该 模型 支持 的 最大 边长 (px) —— MOSS/Z-Image 能 到 3072, Krea-2 只 到 2048.
+            # 界面 的 尺寸 输入框 上限 跟 API 的 校验 都 按 它 走.
+            "max_size": int(it.get("max_size") or 2048),
+            "max_size_note": it.get("max_size_note") or "",
             # 魔搭 repo —— 下载 优先 走 魔搭 (国内 最快); pull 是 HF, 兜底.
             "ms": it.get("ms") or "",
             "guidance": it.get("guidance") if it.get("guidance") is not None else 0,
@@ -1496,17 +1500,42 @@ def _strip_b64(v):
     return v or None
 
 
-def _size_wh(size, lo=256, hi=2048, align=16):
-    """'1024x1024' -> (w, h); 非法 抛 ValueError (调用方 转 400)."""
+def _size_wh(size, lo=256, hi=4096, align=16, model_hi=None):
+    """'1024x1024' -> (w, h); 非法 抛 ValueError (调用方 转 400).
+
+    model_hi: 该 模型 本身 支持 的 最大 边长 (catalog 的 max_size) ——
+    大 于 它 就 拒. **按 模型 给上限**, 不是 一刀切:
+    MOSS-Image-SFT / Z-Image-Turbo 能 出 3072x3072 (实测 通, 各 ~9-10 分钟),
+    Krea-2 的 引擎 硬 拒 >2048 (只 到 2048 一边).
+
+    hi 是 **全局 天花板** (4096), 真正 的 上限 = min(hi, model_hi).
+    model_hi 缺省 = None -> 一律 走 天花板; 调 的 地方 一定 要 把 该 模型 的
+    max_size 传 进来 (catalog 没 写 的 模型 -> _model_max_size 兜底 给 2048).
+    """
     m = re.match(r"^\s*(\d+)\s*[xX×]\s*(\d+)\s*$", str(size or ""))
     if not m:
         raise ParamError("'size' must look like WIDTHxHEIGHT", "size")
     w, hh = int(m.group(1)), int(m.group(2))
+    if model_hi:
+        hi = min(int(hi), int(model_hi))
     if not (lo <= w <= hi) or not (lo <= hh <= hi):
-        raise ParamError("'size' sides must be between %d and %d px" % (lo, hi), "size")
+        raise ParamError("'size' sides must be between %d and %d px (这个 模型 最多 %d px 一边)"
+                         % (lo, hi, hi), "size")
     if w % align or hh % align:
         raise ParamError("'size' sides must be multiples of %d px" % align, "size")
     return w, hh
+
+
+def _model_max_size(srv, mid, default=2048):
+    """该 模型 支持 的 最大 边长 —— catalog 的 max_size; 没 写 就 用 默认."""
+    try:
+        for m in srv.models_resp().get("models", []):
+            if m.get("id") == mid:
+                v = int(m.get("max_size") or 0)
+                return v if v > 0 else default
+    except Exception:
+        pass
+    return default
 
 
 def _ref_list(b, key="ref_images"):
@@ -1746,7 +1775,7 @@ def images_generations(srv, h, b):
     # ---- 契约 参数 (照 抄 闭源 客户端 的 构造 代码) ----
     try:
         size = str_param(b, "size", "1024x1024")
-        w, hh = _size_wh(size)
+        w, hh = _size_wh(size, model_hi=_model_max_size(srv, model))
         # 步数 缺省 值 跟 模型 走 —— MOSS 要 50 步 + CFG 才 正常,
         # Z-Image turbo 只 要 9 步, Krea 4 步 就 够. 统一 写死 4 步 会 让
         # MOSS 出图 明显 掉 质量.
@@ -1916,6 +1945,14 @@ def images_edits(srv, h, b):
         err(h, 400, "missing 'prompt'", param="prompt")
         return
     model = b.get("model") or ""
+    # 画布 上限 按 模型 走 (和 生成 一致) —— 先 校验, 别 等 引擎 跑 起来 才 报错.
+    _edit_mid = (model or "").strip() or default_model_with_cap(srv, "image")
+    try:
+        w2, h2 = _size_wh(b.get("size") or "1024x1024",
+                          model_hi=_model_max_size(srv, _edit_mid))
+    except ValueError as e:
+        err(h, 400, str(e), param=getattr(e, "param", None))
+        return
     src = b.get("image") or b.get("images")
     extra = []
     if not src:
@@ -1946,7 +1983,9 @@ def images_edits(srv, h, b):
             err(h, 400, str(e), param=getattr(e, "param", None))
             return
         try:
-            srv.load("image")
+            # 按 用户 指定 的 模型 装 引擎 —— 不然 选 了 MOSS 实际 挂 的 还是 Krea,
+            # 画布 上限 也 就 对 不 上 (MOSS 能 到 3072, Krea 只 到 2048).
+            srv.load("image", _edit_mid)
         except Exception:
             pass
         img_eng = srv.engines.get("image")
@@ -1958,7 +1997,6 @@ def images_edits(srv, h, b):
                 pass
         if img_eng is not None and hasattr(img_eng, "generate_advanced"):
             # 真 的 扩散 编辑: VAE 编码 原图 -> 按 strength 加噪 -> 从 对应 时间步 继续 去噪
-            w2, h2 = _size_wh(b.get("size") or "1024x1024")
             out = outputs.path_for("image","mx_edit","png")
             img_eng.generate_advanced(
                 prompt, out=out, width=w2, height=h2,
