@@ -11,7 +11,7 @@
 set -e
 cd "$(dirname "$0")"
 NAME="MLX-Serve-Studio"
-VER="1.9"
+VER="1.10"
 OUT="$(pwd)/dist"
 STAGE="$(mktemp -d)/stage"
 ROOT="$(cd .. && pwd)"
