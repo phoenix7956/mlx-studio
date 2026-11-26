@@ -6,11 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+# 同 一个 commit 只 留 最新 一 次 跑
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 # 改 代码 就 跑 —— 不 需要 模型 权重, 也 不 需要 GPU.
 jobs:
   check:
     name: 语法 / 目录 / 泄露 自检
-    runs-on: macos-14
+    # 这 几 项 检查 都是 跨平台 的 (纯 文本 / 语法), 所以 用 最 便宜 的 runner.
+    # 真 要 跑 模型 得 用 macOS + Apple Silicon —— 那 是 本地 跑 的 事.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
