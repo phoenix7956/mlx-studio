@@ -458,16 +458,25 @@ say "环境 文件: $ENVF"
 # ================================================================= 5. 桌面 App
 if [ "$APP" = "1" ] || [ "$AGENT" = "1" ]; then
   A=""
-  for c in "$ROOT/MLX Serve Studio.app" "$ROOT/../desktop/MLX Serve Studio.app" \
-           "/Applications/MLX Serve Studio.app"; do
+  for c in "$ROOT/MLX Serve Studio.app" "$ROOT/../desktop/MLX Serve Studio.app"; do
     [ -d "$c" ] && A="$c" && break
   done
-  # 仓库 里 没 现成 的 .app —— 就 从 desktop/ 源码 现 编 一个 (要 有 swiftc).
+  # 已装 的 那份 (/Applications/…) **不 算 候选** —— 拿 它 再 装 回 去 等于 没 升级
+  # (老 版本 永远 赢, 界面 停在 老 的). 只 在 实在 没 别 的 时候 才 用 它.
+  # 从 desktop/ 源码 现 编 一个 (要 有 swiftc) —— 编 出来 的 一定 比 已装 的 新.
   if [ -z "$A" ] && [ -f "$ROOT/desktop/build_app.sh" ] && command -v swiftc >/dev/null 2>&1; then
     say "编译 桌面 App (从 desktop/ 源码) …"
     ( cd "$ROOT/desktop" && ./build_app.sh ) >/dev/null 2>&1 || true
     B="$REAL_HOME/.ours/build/MLX Serve Studio.app"
     [ -d "$B" ] && A="$B"
+  fi
+  # 编 不 出来 (没 swiftc) —— 用 上 次 编 的 那份
+  if [ -z "$A" ] && [ -d "$REAL_HOME/.ours/build/MLX Serve Studio.app" ]; then
+    A="$REAL_HOME/.ours/build/MLX Serve Studio.app"
+  fi
+  # 没 swiftc / 编 不 出来 —— 退回 已装 的 那份 (至少 保证 能 跑)
+  if [ -z "$A" ] && [ -d "/Applications/MLX Serve Studio.app" ]; then
+    A="/Applications/MLX Serve Studio.app"
   fi
   if [ -n "$A" ]; then
     D="/Applications/MLX Serve Studio.app"

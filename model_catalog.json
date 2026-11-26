@@ -2,36 +2,6 @@
   "note": "MLX Studio 模型库. 引擎列 = 谁能跑它. builtin=True = 我们 内核 自带 的 能力引擎 (不 依赖 权重 目录), present 由 内核 探活 决定. | 模型页 的 行 操作 = 下载 + 删除; 加载/卸载 只 在 项目 页. | license/license_spdx/license_free = 权重 本身 的 许可 (Apache-2.0 / MIT = 自由许可; other = 社区许可, 有 附加条款). | ms = 魔搭 repo (下载 优先 走 魔搭, 国内 最快); pull = HF repo (兜底). | 仓库 里 不 带 任何 权重, 权重 全部 由 用户 下载 后 各自 遵守 作者 的 许可.",
   "catalog": [
     {
-      "id": "h3-8bit",
-      "name": "MiniMax H3 8bit DiT",
-      "cap": "video",
-      "engine": "our-server /video",
-      "license": "MiniMax H3 社区许可",
-      "license_spdx": "other",
-      "license_free": false,
-      "license_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
-      "ms": "MiniMax/MiniMax-H3",
-      "size": "33G",
-      "local": "~/.ours/quant/h3-mlx-8bit",
-      "downloadable": false,
-      "note": "8bit DiT —— 由 4bit 脚本 量化 出来 (下 完 权重 后 改 --bits 8)"
-    },
-    {
-      "id": "h3-6bit",
-      "name": "MiniMax H3 6bit DiT",
-      "cap": "video",
-      "engine": "our-server /video",
-      "license": "MiniMax H3 社区许可",
-      "license_spdx": "other",
-      "license_free": false,
-      "license_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
-      "ms": "MiniMax/MiniMax-H3",
-      "size": "28G",
-      "local": "~/.ours/quant/h3-mlx-6bit",
-      "downloadable": false,
-      "note": "6bit DiT —— 由 4bit 脚本 量化 出来 (下 完 权重 后 改 --bits 6)"
-    },
-    {
       "id": "h3-4bit",
       "name": "MiniMax H3 4bit DiT",
       "cap": "video",
