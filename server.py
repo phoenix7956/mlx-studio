@@ -16,7 +16,27 @@ except Exception:
 
 IDLE_S = 30*60
 NODE = os.environ.get("MLX_NODE_ROLE", "remote")   # local (本 机) / remote (第二台机)
-ROUTE = {"video":"remote","image":"remote","music":"local"}
+
+
+def route_now():
+    """当前 路由 —— **算 出来 的**, 不 写死.
+
+    出片 / 出图 走 远端 还是 本机, 取决 于 有 没有 配 远端 节点
+    (REMOTE_SSH_TARGET / ~/.ours/node.json). 没 配 就 本机 自己 干.
+
+    之前 这里 是 个 写死 的 常量, 结果 第二台机 自己 的 /health 也 报
+    「video 走 remote」—— 那 台机 上 明明 没有 远端 节点.
+    """
+    has_remote = False
+    try:
+        import remote_node as _rn
+        has_remote = bool(_rn.target())
+    except Exception:
+        has_remote = False
+    if has_remote:
+        return {"video": "remote", "image": "remote", "music": "local"}
+    return {"video": "local", "image": "local", "music": "local"}
+
 
 # 生成 产物 的 文件名 前缀 / 后缀 -> 素材库 的 类型
 LIB_PREFIXES = ("mx_img_", "mx_v1_img_", "mx_v1img_", "mx_edit_", "mx_music_",
@@ -1416,7 +1436,7 @@ class H(BaseHTTPRequestHandler):
             self._serve_file(path)
             return
         if p=="/health":
-            fr=free_gib(); self._j({"status":"ok","node":NODE,"loaded":self.srv.loaded_engines(),"idle_s":getattr(self.srv,"idle_evict_secs",IDLE_S),"route":ROUTE,"free_gib":round(fr,1) if fr is not None else None})
+            fr=free_gib(); self._j({"status":"ok","node":NODE,"loaded":self.srv.loaded_engines(),"idle_s":getattr(self.srv,"idle_evict_secs",IDLE_S),"route":route_now(),"free_gib":round(fr,1) if fr is not None else None})
         elif p=="/unload":
             self.srv.unload(); self._j({"unloaded":True,"loaded":[]})
         elif p=="/video":
