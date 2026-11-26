@@ -437,6 +437,11 @@ html[data-compact="1"] .section-title{margin:14px 0 7px}
 .img-compare tbody tr.on td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
 .img-compare td.num{font-variant-numeric:tabular-nums}
 .img-compare .lic{white-space:normal}
+.img-compare td.fit{white-space:normal;color:var(--text-2)}
+.img-suggest{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 10px;border-top:1px solid var(--sep);font-size:.75rem}
+.img-suggest strong{font-weight:600}
+.img-suggest .chip{margin-left:auto}
 .media-model-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
 .media-model-actions>.field-note{display:inline-flex;align-items:center;gap:5px}
 .media-model-actions .dot{width:6px;height:6px;border-radius:50%;background:var(--text-2);display:inline-block;flex:none}
@@ -855,7 +860,7 @@ const state = {
   compact: false, chatWidth: 976, apiKey: '', servers: [], server: '', ttsRef: null,
   libItems: [], libQuery: '', libType: 'all', history: [], toolRounds: 0,
   range: 'live', pollTimer: null, usedTokens: 0,
-  mediaModel: {}, imgQuality: 'good', vidQuality: 'fast', vidFrames: 124, vidSteps: 8,
+  mediaModel: {}, imgQuality: '', vidQuality: 'fast', vidFrames: 124, vidSteps: 8,
   vidMode: 't2v', audioTab: 'speech', musMode: 'text2music', musRef: null, launcherAgent: '',
   libType: '', libServer: '', libLimit: 60,
   idleS: 1800,
@@ -2269,14 +2274,14 @@ function modelCard(cap, fallbackId) {
   // 默认 选 真正 能 用 的 那个:
   // 1) 用户 之前 选过 且 权重 在 位 —— 尊重 用户 的 选择
   // 2) 已经 装 着 的 (loaded) —— 卡片 得 显示 它, 不然 用户 看 不 到 「卸载」
-  // 3) 主力 (catalog 标 了 preferred 的, 且 权重 在 位) —— 出图 主力 是 MOSS
+  // 3) 默认 (catalog 标 了 default 的, 且 权重 在 位) —— 只 是 兜底, 谁 当 主力 由 用户 定
   // 4) 权重 在 位 的 第一个
   // 5) 兜底 第一个
   const keep = state.mediaModel && state.mediaModel[cap];
   const kept = keep && list.find(m => m.id === keep && m.state !== 'absent');
   const cur = (kept && kept.id) ||
     (list.find(m => m.loaded || m.state === 'loaded') || {}).id ||
-    (list.find(m => m.preferred && m.state !== 'absent') || {}).id ||
+    (list.find(m => m.default && m.state !== 'absent') || {}).id ||
     (list.find(m => m.state !== 'absent') || list[0] || { id: fallbackId }).id;
   state.mediaModel = state.mediaModel || {};
   state.mediaModel[cap] = cur;
@@ -2298,7 +2303,7 @@ function modelCardHTML(cap, cur, capsNote, emptyNote) {
   const loaded = !!(m.loaded || m.state === 'loaded');
   const absent = m.state === 'absent';
   const items = list.map(x =>
-    `<button type="button" role="menuitemradio" data-model="${esc(x.id)}" aria-checked="${x.id === cur}">${esc(x.name || x.id)}${x.max_steps ? `<small style="opacity:.65;margin-left:6px">${x.max_steps} 步${x.bench_4mp_sec ? ' · ' + x.bench_4mp_sec + 's@4MP' : ''}</small>` : ''}</button>`).join('');
+    `<button type="button" role="menuitemradio" data-model="${esc(x.id)}" aria-checked="${x.id === cur}">${esc(x.name || x.id)}${x.max_steps ? `<small style="opacity:.65;margin-left:6px">${x.max_steps} 步</small>` : ''}</button>`).join('');
   return `<h2>模型</h2>
   <div class="image-model-card"><strong>${esc(m.name || m.id)}</strong>
     <span class="field-note">${esc(capsNote)}</span></div>
@@ -2320,8 +2325,16 @@ function modelCardHTML(cap, cur, capsNote, emptyNote) {
       ? `${esc(m.name || m.id)} 的权重 不 在 本机 —— 先 到「模型」页 下载, 或 换一个 在 位 的 模型。`
       : `点「加载」现在 就装进 显存；不 点 也 可以，生成 时 会 自动 加载 ${esc(cur)}（服务器 ${esc(state.serverName || '此服务器')}）。`)}</p>`;
 }
-// 出图 模型 对比表 —— 同 prompt 同 seed 的 实测 数据, 一眼 看出 谁 快 谁 强
-function imageCompareHTML(cur) {
+// 出图 模型 表 —— 步数 / 画布 / 适合 什么, 一眼 看清 每个 模型 能 干 啥.
+// 谁 当 「主力」 由 用户 定 —— 这里 只 给 建议, 不 给 标签.
+function imageSuggest(tier, w, h) {
+  const big = Math.max(+w || 0, +h || 0) >= 3072;
+  if (tier === 'fast' || tier === 'good') {
+    return { id: 'z-image-turbo', why: big ? '大画布 + 要 快 —— Turbo 9 步 就 出图' : '要 快 —— Turbo 9 步 就 出图' };
+  }
+  return { id: 'moss-image-sft', why: big ? '大画布 + 要 细节 / 文字 —— MOSS 最强' : '要 细节 / 文字 —— MOSS 最强' };
+}
+function imageCompareHTML(cur, sug) {
   const rows = (state.models || [])
     .filter(m => (m.capabilities || []).includes('image') && m.max_steps)
     .map(m => ({
@@ -2329,30 +2342,50 @@ function imageCompareHTML(cur) {
       name: m.name || m.id,
       max: m.max_steps,
       def: m.default_steps || 0,
-      bench: m.bench_4mp_sec || 0,
-      lic: m.license || '',
-      note: m.bench_note || '',
+      fit: m.fit_note || '',
       state: m.state,
-      pref: !!m.preferred,
-      prefNote: m.preferred_note || '',
       maxSize: m.max_size || 2048,
+      qs: Array.isArray(m.quality_steps) ? m.quality_steps : [],
     }))
-    .sort((a, b) => (a.bench || 1e9) - (b.bench || 1e9));
+    .sort((a, b) => a.max - b.max);
   if (!rows.length) return '';
-  const cfg = r => r.def && r.def !== r.max ? `${r.max} 步 (默认 ${r.def})` : `${r.max} 步`;
+  const cfg = r => r.qs.length
+    ? `${r.max} 步 · 质量档 ${r.qs.join(' / ')}`
+    : `${r.max} 步`;
+  const sugRow = sug && sug.id ? `<div class="img-suggest">
+      <span>建议</span><strong>${esc((rows.find(r => r.id === sug.id) || {}).name || sug.id)}</strong>
+      <span class="field-note">${esc(sug.why)}</span>
+      ${sug.id !== cur ? '<button type="button" class="chip" id="i-use-sug">换成它</button>' : ''}
+    </div>` : '';
   return `<div class="img-compare">
     <table>
-      <thead><tr><th>模型</th><th>上限配置</th><th>4MP 实测</th><th>最大画布</th><th>许可</th></tr></thead>
+      <thead><tr><th>模型</th><th>步数</th><th>画布上限</th><th>适合</th></tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.id === cur ? 'on' : ''}">
-        <td>${esc(r.name)}${r.pref ? ' <span class="badge free">主力</span>' : ''}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
+        <td>${esc(r.name)}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
         <td class="num">${esc(cfg(r))}</td>
-        <td class="num">${r.bench ? r.bench + 's' : '—'}</td>
         <td class="num">${r.maxSize}×${r.maxSize}</td>
-        <td class="lic">${esc(r.lic || '—')}</td>
+        <td class="fit">${esc(r.fit || '—')}</td>
       </tr>`).join('')}</tbody>
     </table>
-    ${rows.find(r => r.pref && r.prefNote) ? `<div class="field-note" style="margin-top:6px">${esc(rows.find(r => r.pref).prefNote)}</div>` : ''}
+    ${sugRow}
   </div>`;
+}
+// 建议 那 一 行 —— 跟 着 当前 档位 / 画布 / 模型 走.
+// 换 模型 (refreshModelCards)、改 档、改 尺寸 都 走 这个, 保证 不 会 被 冲掉.
+function refreshImageCompare() {
+  const box = $('#i-compare'); if (!box) return;
+  const cur = (state.mediaModel && state.mediaModel.image) || '';
+  const on = document.querySelector('#i-quality button[aria-pressed="true"]');
+  const tier = on ? on.dataset.q : (state.imgQuality || 'good');
+  const wEl = $('#i-w'), hEl = $('#i-h');
+  const sug = imageSuggest(tier, wEl ? wEl.value : 0, hEl ? hEl.value : 0);
+  box.innerHTML = imageCompareHTML(cur, sug);
+  const use = $('#i-use-sug');
+  if (use) use.onclick = () => {
+    state.mediaModel.image = sug.id;
+    state.imgQuality = tier;
+    renderImage();
+  };
 }
 function wireModelCard(cap) {
   const btn = $('#mdl-' + cap + '-btn'), menu = $('#mdl-' + cap + '-menu');
@@ -2434,8 +2467,7 @@ function refreshModelCards() {
     wireModelCard(cap);
   });
   // 出图 模型 对比表 —— 换 了 模型, 高亮 那 一 行 要 跟着 变
-  const cw = document.getElementById('i-compare');
-  if (cw) cw.innerHTML = imageCompareHTML(state.mediaModel && state.mediaModel.image);
+  refreshImageCompare();
 }
 document.addEventListener('click', () => {
   $$('.image-menu-popup').forEach(p => { p.hidden = true; });
@@ -2630,7 +2662,12 @@ function imgModelCfg() {
   const def = Math.min(m.default_steps || 4, max);
   // 画布 上限 **按 模型 走** —— MOSS / Z-Image 能 到 3072, Krea-2 只 到 2048.
   const maxSize = m.max_size || 2048;
-  return { mid, max, def, name: m.name || mid, maxSize,
+  // 四 档 质量 -> 步数, **按 模型 走** (catalog 的 quality_steps):
+  // Krea 4/8/16/32 步, Z-Image-Turbo 只 到 9 步 (2/4/6/9), MOSS 要 50 步 (12/25/38/50).
+  // 档位 是 固定 的 四 个 —— 换 模型 也 点 得动, 只是 各 档 的 步数 不一样.
+  let qs = Array.isArray(m.quality_steps) ? m.quality_steps.filter(x => x > 0) : [];
+  if (qs.length !== 4) qs = IMG_QUALITY.map(x => Math.min(x[1], max));
+  return { mid, max, def, name: m.name || mid, maxSize, qs,
            maxSizeNote: m.max_size_note || '' };
 }
 const IMG_SIZES = [[1024, 1024], [512, 512], [1152, 896], [896, 1152], [1216, 832],
@@ -2663,18 +2700,21 @@ function wirePresetMenu(id, onPick) {
 }
 function renderImage() {
   const cur = modelCard('image', 'krea-turbo');
-  const q = state.imgQuality || 'good';
   const qmap = {}; IMG_QUALITY.forEach(x => qmap[x[0]] = x[1]);
   const mc = imgModelCfg();
-  // 模型 缺省 步数 若 正好 落在 某个 档位 上, 就 把 那 个 档位 标成 选中
-  const qKey = (IMG_QUALITY.find(x => x[1] === mc.def) || [q])[0];
-  // 模型 有 自己 的 步数 上限 (Z-Image-Turbo 只 9 步) —— 超过 上限 的 档位 置灰,
-  // 缺省 步数 也 跟 模型 走 (MOSS 要 50 步 才 正常)
+  // 选中 的 档: 用户 选过 就 沿用 (换 模型 也 沿用); 没 选过 就 取 最 接近
+  // 该 模型 缺省 步数 的 那 档 (Z-Image 9 步 -> 超高质量, MOSS 50 步 -> 超高质量,
+  // Krea 4 步 -> 快速).
+  let qKey = state.imgQuality;
+  if (!qKey || !IMG_QUALITY.some(x => x[0] === qKey)) {
+    let best = Infinity;
+    mc.qs.forEach((st, i) => { const d = Math.abs(st - mc.def); if (d < best) { best = d; qKey = IMG_QUALITY[i][0]; } });
+  }
+  // 四 档 永远 都 能点 —— 档位 固定, 各 档 的 步数 按 模型 走.
   const qBtn = (x) => {
-    const over = x[1] > mc.max;
-    return `<button type="button" data-q="${x[0]}" aria-pressed="${x[0] === qKey}"${over ? ' disabled title="超出该模型的上限步数"' : ''}>${({ fast: '快速', good: '良好', quality: '质量', super: '超高质量' })[x[0]]}</button>`;
+    return `<button type="button" data-q="${x[0]}" aria-pressed="${x[0] === qKey}">${({ fast: '快速', good: '良好', quality: '质量', super: '超高质量' })[x[0]]}</button>`;
   };
-  const initSteps = mc.def || qmap[q];
+  const initSteps = mc.qs[IMG_QUALITY.findIndex(x => x[0] === qKey)] || mc.def || qmap[qKey];
   state.imgSteps = initSteps;
   $('#page-image').innerHTML = `
   <section class="image-screen" aria-label="图像生成">
@@ -2682,8 +2722,8 @@ function renderImage() {
     <fieldset>
       <section class="image-section media-chooser" data-mcard="image">${modelCardHTML('image', cur, '文生图 · 变体')}</section>
       <section class="image-section">
-        <div class="image-heading"><h3>模型对比</h3><span class="field-note">同 prompt 同 seed · 2048×2048 实测</span></div>
-        <div id="i-compare">${imageCompareHTML(cur)}</div>
+        <div class="image-heading"><h3>出图模型</h3><span class="field-note">步数 / 画布上限 / 适合</span></div>
+        <div id="i-compare">${imageCompareHTML(cur, imageSuggest(qKey, 1024, 1024))}</div>
       </section>
       <section class="image-section">
         <div class="image-heading">
@@ -2752,7 +2792,9 @@ function renderImage() {
   wireModelCard('image');
   wireTemplateMenu('i-tpl-btn', 'i-tpl-menu', 'i-prompt', PROMPT_TEMPLATES);
   $('#i-enhance').onclick = () => enhancePrompt('i-prompt', 'i-enhance');
-  wirePresetMenu('i-preset', (w, h) => { $('#i-w').value = w; $('#i-h').value = h; });
+  wirePresetMenu('i-preset', (w, h) => { $('#i-w').value = w; $('#i-h').value = h; refreshSuggest(); });
+  const refreshSuggest = refreshImageCompare;
+  ['#i-w', '#i-h'].forEach(s => { const el = $(s); if (el) el.oninput = refreshSuggest; });
   const syncImageGen = bindGenToggle('i-go', 'i-prompt');
   $('#i-rand').onclick = () => { $('#i-seed').value = Math.floor(Math.random() * 4294967295); };
   const refs = [];
@@ -2783,10 +2825,22 @@ function renderImage() {
     $$('#i-quality button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     state.imgQuality = b.dataset.q;
     const mc2 = imgModelCfg();
-    const v = Math.min(qmap[b.dataset.q], mc2.max);
+    // 各 档 的 步数 按 当前 模型 走 (Z-Image 9 步 上限, MOSS 要 50 步) —— 档位 都 点得动.
+    const qi = IMG_QUALITY.findIndex(x => x[0] === b.dataset.q);
+    const v = mc2.qs[qi] || Math.min(qmap[b.dataset.q], mc2.max);
     $('#i-steps').value = v;
     $('#i-qnote').textContent = v + ' 步 · 上限 ' + mc2.max + ' 步';
+    refreshSuggest();
   });
+  // 手 改 步数 -> 档位 高亮 跟 上 (值 正好 落在 某 档 上 才 高亮).
+  const stepsIn = $('#i-steps');
+  if (stepsIn) stepsIn.oninput = () => {
+    const mc2 = imgModelCfg();
+    const v = parseInt(stepsIn.value, 10) || 0;
+    const qi = mc2.qs.indexOf(v);
+    $$('#i-quality button').forEach(x => x.setAttribute('aria-pressed', String(qi >= 0 && x.dataset.q === IMG_QUALITY[qi][0])));
+    $('#i-qnote').textContent = v + ' 步 · 上限 ' + mc2.max + ' 步';
+  };
   $('#i-go').onclick = async () => {
     const prompt = $('#i-prompt').value.trim();
     if (!prompt) { toast('写 个 提示词'); return; }

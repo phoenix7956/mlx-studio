@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlx-studio"
-version = "1.10.0"
+version = "1.11.0"
 description = "MLX Studio —— 本机 多模态 推理 内核 (出图 / 出歌 / 对话 / 语音) + Studio 控制台"
 readme = "README.md"
 requires-python = ">=3.10"

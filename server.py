@@ -335,16 +335,17 @@ class Srv:
         except Exception:
             pass
         models=self.models_resp().get("models",[])
-        # 主力 (catalog 里 标 了 preferred 的) —— 出图 主力 是 MOSS:
-        # Apache-2.0 商用 没 门槛, 质量 最 稳; Krea-2 有 $1M 营收 门槛, 只 当 备选.
+        # 默认 (catalog 里 标 了 default 的) —— 默认 出图 模型 是 MOSS:
+        # Apache-2.0 商用 没 门槛. 这 只是 「请求 不 指定 model 时 用 谁」,
+        # 界面 上 不 给 谁 贴 「主力」 标签 —— 用 哪个 模型 是 用户 定 的.
         for m in models:
-            if m.get("cap")=="image" and m.get("preferred") and m.get("present"):
+            if m.get("cap")=="image" and m.get("default") and m.get("present"):
                 return m.get("id")
         for m in models:
             if m.get("cap")=="image" and m.get("present"):
                 return m.get("id")
         for m in models:
-            if m.get("cap")=="image" and m.get("preferred"):
+            if m.get("cap")=="image" and m.get("default"):
                 return m.get("id")
         return "moss-image-sft"
 

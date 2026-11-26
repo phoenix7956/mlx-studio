@@ -118,13 +118,15 @@ def default_model_with_cap(srv, cap):
     ("No default model configured") —— 所以 这里 只 认 在位 的 模型,
     不 在位 的 往后 排, 全 都 不 在位 才 算 "没 模型".
 
-    主力 优先 (catalog 里 标 了 preferred 的): 出图 主力 是 MOSS-Image-SFT
+    默认 优先 (catalog 里 标 了 default 的): 默认 出图 模型 是 MOSS-Image-SFT
     (Apache-2.0, 商用 没 门槛); 之前 只 按 目录 顺序 取 第一个, 拿到 的 是
     Krea-2-Turbo (社区许可, 有 $1M 营收 门槛) —— 不 对.
+    这 只是 「请求 不 指定 model 时 用 谁」, 界面 上 不 给 谁 贴 「主力」 标签
+    —— 用 哪个 模型 是 用户 自己 定 的.
     """
     ents = model_entries(srv)
     for e in ents:
-        if cap in e["capabilities"] and e.get("preferred") and e.get("state") != "absent":
+        if cap in e["capabilities"] and e.get("default") and e.get("state") != "absent":
             return e["id"]
     for e in ents:
         if cap in e["capabilities"] and e.get("state") != "absent":
@@ -133,7 +135,7 @@ def default_model_with_cap(srv, cap):
         if cap in e["capabilities"]:
             return e["id"]
     for e in ents:
-        if cap in e["capabilities"] and e.get("preferred"):
+        if cap in e["capabilities"] and e.get("default"):
             return e["id"]
     return ""
 
@@ -483,13 +485,20 @@ def model_entries(srv):
             # 许可 条款 的 key —— 前端 点 徽章 就 用 它 去 /v1/licenses/<key> 取
             # 商用门槛 / 地区限制 / 署名要求 + 协议 原文.
             "license_key": _license_key(it),
-            # 主力 模型 (出图 主力 = MOSS) —— 界面 默认 选 它, API 不 指定 也 用 它
-            "preferred": bool(it.get("preferred")),
-            "preferred_note": it.get("preferred_note") or "",
+            # 默认 模型 —— 请求 不 指定 model 时 用 它. 不 在 界面 上 标 「主力」:
+            # 用 哪个 模型 是 用户 定 的.
+            "default": bool(it.get("default")),
+            "default_note": it.get("default_note") or "",
             # 该 模型 支持 的 最大 边长 (px) —— MOSS/Z-Image 能 到 3072, Krea-2 只 到 2048.
             # 界面 的 尺寸 输入框 上限 跟 API 的 校验 都 按 它 走.
             "max_size": int(it.get("max_size") or 2048),
             "max_size_note": it.get("max_size_note") or "",
+            # 四 档 质量 各 对应 多少 步 —— 每个 模型 自己 的 步数 规矩 不一样
+            # (Krea 4~32 步, Z-Image-Turbo 只 到 9 步, MOSS 要 50 步 + CFG).
+            # 界面 的 质量 四 档 永远 可点, 各 档 落到 各 模型 自己 的 步数 上.
+            "quality_steps": [int(x) for x in (it.get("quality_steps") or [])][:4],
+            # 一 句 适合 什么 场景 —— 界面 上 给 用户 参考, 不 替 用户 做 决定.
+            "fit_note": it.get("fit_note") or "",
             # 魔搭 repo —— 下载 优先 走 魔搭 (国内 最快); pull 是 HF, 兜底.
             "ms": it.get("ms") or "",
             "guidance": it.get("guidance") if it.get("guidance") is not None else 0,
