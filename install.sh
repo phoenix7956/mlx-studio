@@ -636,7 +636,7 @@ cat <<EOF
   打开 上面 的 地址 (或者 桌面 App) -> 左侧「模型」页 -> 点「下载」
   出歌 (ACE-Step / Music3) 权重 走 魔搭, 国内 直连;
   下载 优先 走 魔搭 (国内 最快), hf-mirror 自动 兜底.
-  模型页 会 显示 每个 权重 的 许可 —— Apache-2.0 / MIT 随便 用.
+  模型页 摆 的 就是 我们 测试 过 的 模型 —— 点「下载」 直接 用.
 
 【API】
   http://127.0.0.1:$PORT/v1/chat/completions   (OpenAI 兼容)
