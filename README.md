@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-9cf2d0)
 
+[中文](README.md) | English
+
 **跑在你自己 Mac 上的 AI 创作工作室。** 图像、视频、音乐、语音、对话，一个桌面 App 全包，
 模型权重全部本地跑，不上传任何数据。
 
