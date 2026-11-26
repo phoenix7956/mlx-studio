@@ -117,13 +117,23 @@ def default_model_with_cap(srv, cap):
     闭源 契约: 服务 端 没有 可用 模型 时, 生成 类 端点 一律 503 no_model
     ("No default model configured") —— 所以 这里 只 认 在位 的 模型,
     不 在位 的 往后 排, 全 都 不 在位 才 算 "没 模型".
+
+    主力 优先 (catalog 里 标 了 preferred 的): 出图 主力 是 MOSS-Image-SFT
+    (Apache-2.0, 商用 没 门槛); 之前 只 按 目录 顺序 取 第一个, 拿到 的 是
+    Krea-2-Turbo (社区许可, 有 $1M 营收 门槛) —— 不 对.
     """
     ents = model_entries(srv)
+    for e in ents:
+        if cap in e["capabilities"] and e.get("preferred") and e.get("state") != "absent":
+            return e["id"]
     for e in ents:
         if cap in e["capabilities"] and e.get("state") != "absent":
             return e["id"]
     for e in ents:
         if cap in e["capabilities"]:
+            return e["id"]
+    for e in ents:
+        if cap in e["capabilities"] and e.get("preferred"):
             return e["id"]
     return ""
 
@@ -473,6 +483,9 @@ def model_entries(srv):
             # 许可 条款 的 key —— 前端 点 徽章 就 用 它 去 /v1/licenses/<key> 取
             # 商用门槛 / 地区限制 / 署名要求 + 协议 原文.
             "license_key": _license_key(it),
+            # 主力 模型 (出图 主力 = MOSS) —— 界面 默认 选 它, API 不 指定 也 用 它
+            "preferred": bool(it.get("preferred")),
+            "preferred_note": it.get("preferred_note") or "",
             # 魔搭 repo —— 下载 优先 走 魔搭 (国内 最快); pull 是 HF, 兜底.
             "ms": it.get("ms") or "",
             "guidance": it.get("guidance") if it.get("guidance") is not None else 0,

@@ -2268,12 +2268,14 @@ function modelCard(cap, fallbackId) {
   // 默认 选 真正 能 用 的 那个:
   // 1) 用户 之前 选过 且 权重 在 位 —— 尊重 用户 的 选择
   // 2) 已经 装 着 的 (loaded) —— 卡片 得 显示 它, 不然 用户 看 不 到 「卸载」
-  // 3) 权重 在 位 的 第一个
-  // 4) 兜底 第一个
+  // 3) 主力 (catalog 标 了 preferred 的, 且 权重 在 位) —— 出图 主力 是 MOSS
+  // 4) 权重 在 位 的 第一个
+  // 5) 兜底 第一个
   const keep = state.mediaModel && state.mediaModel[cap];
   const kept = keep && list.find(m => m.id === keep && m.state !== 'absent');
   const cur = (kept && kept.id) ||
     (list.find(m => m.loaded || m.state === 'loaded') || {}).id ||
+    (list.find(m => m.preferred && m.state !== 'absent') || {}).id ||
     (list.find(m => m.state !== 'absent') || list[0] || { id: fallbackId }).id;
   state.mediaModel = state.mediaModel || {};
   state.mediaModel[cap] = cur;
@@ -2330,6 +2332,8 @@ function imageCompareHTML(cur) {
       lic: m.license || '',
       note: m.bench_note || '',
       state: m.state,
+      pref: !!m.preferred,
+      prefNote: m.preferred_note || '',
     }))
     .sort((a, b) => (a.bench || 1e9) - (b.bench || 1e9));
   if (!rows.length) return '';
@@ -2338,12 +2342,13 @@ function imageCompareHTML(cur) {
     <table>
       <thead><tr><th>模型</th><th>上限配置</th><th>4MP 实测</th><th>许可</th></tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.id === cur ? 'on' : ''}">
-        <td>${esc(r.name)}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
+        <td>${esc(r.name)}${r.pref ? ' <span class="badge free">主力</span>' : ''}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
         <td class="num">${esc(cfg(r))}</td>
         <td class="num">${r.bench ? r.bench + 's' : '—'}</td>
         <td class="lic">${esc(r.lic || '—')}</td>
       </tr>`).join('')}</tbody>
     </table>
+    ${rows.find(r => r.pref && r.prefNote) ? `<div class="field-note" style="margin-top:6px">${esc(rows.find(r => r.pref).prefNote)}</div>` : ''}
   </div>`;
 }
 function wireModelCard(cap) {

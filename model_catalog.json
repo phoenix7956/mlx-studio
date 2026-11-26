@@ -227,6 +227,8 @@
       "license": "Apache-2.0",
       "license_spdx": "apache-2.0",
       "license_free": true,
+      "preferred": true,
+      "preferred_note": "主力 出图 —— Apache-2.0 (商用 没 门槛), 质量 最 稳. Krea-2 有 $1M 营收 门槛, 只 当 备选.",
       "license_url": "https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT",
       "size": "13G",
       "local": "~/.ours/models/moss-image-sft-mflux-q8",

@@ -334,10 +334,19 @@ class Srv:
             if cur: return cur
         except Exception:
             pass
-        for m in self.models_resp().get("models",[]):
+        models=self.models_resp().get("models",[])
+        # 主力 (catalog 里 标 了 preferred 的) —— 出图 主力 是 MOSS:
+        # Apache-2.0 商用 没 门槛, 质量 最 稳; Krea-2 有 $1M 营收 门槛, 只 当 备选.
+        for m in models:
+            if m.get("cap")=="image" and m.get("preferred") and m.get("present"):
+                return m.get("id")
+        for m in models:
             if m.get("cap")=="image" and m.get("present"):
                 return m.get("id")
-        return "krea-turbo"
+        for m in models:
+            if m.get("cap")=="image" and m.get("preferred"):
+                return m.get("id")
+        return "moss-image-sft"
 
     def scan_model_dirs(self):
         """重扫 --model-dir (POST /v1/models/rescan 用)."""
