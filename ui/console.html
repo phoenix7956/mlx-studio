@@ -2328,11 +2328,24 @@ function modelCardHTML(cap, cur, capsNote, emptyNote) {
 // 出图 模型 表 —— 步数 / 画布 / 适合 什么, 一眼 看清 每个 模型 能 干 啥.
 // 谁 当 「主力」 由 用户 定 —— 这里 只 给 建议, 不 给 标签.
 function imageSuggest(tier, w, h) {
-  const big = Math.max(+w || 0, +h || 0) >= 3072;
-  if (tier === 'fast' || tier === 'good') {
-    return { id: 'z-image-turbo', why: big ? '大画布 + 要 快 —— Turbo 9 步 就 出图' : '要 快 —— Turbo 9 步 就 出图' };
-  }
-  return { id: 'moss-image-sft', why: big ? '大画布 + 要 细节 / 文字 —— MOSS 最强' : '要 细节 / 文字 —— MOSS 最强' };
+  // 建议 要 看 两 件 事: 你 想 出 的 尺寸 (哪个 模型 能 出 到 那 个 尺寸),
+  // 以及 你 要 快 还是 要 细节 (档位).
+  const need = Math.max(+w || 0, +h || 0);
+  const imgs = (state.models || []).filter(m => (m.capabilities || []).includes('image') && m.max_steps);
+  const fits = imgs.filter(m => (m.max_size || 2048) >= need);
+  // 没 模型 出 得动 这个 尺寸 -> 退而 求其次: 挑 能 出 最大 画布 的 那 个, 让 用户 知道 差 点
+  const pool = fits.length ? fits
+    : imgs.slice().sort((a, b) => (b.max_size || 0) - (a.max_size || 0)).slice(0, 1);
+  const order = (tier === 'fast' || tier === 'good')
+    ? ['z-image-turbo', 'moss-image-sft', 'krea-turbo']
+    : ['moss-image-sft', 'z-image-turbo', 'krea-turbo'];
+  const pick = order.map(id => pool.find(m => m.id === id)).find(Boolean) || pool[0];
+  if (!pick) return { id: '', why: '' };
+  const big = need > 2048;
+  const fast = tier === 'fast' || tier === 'good';
+  const why = (big ? '这个 尺寸 要 大画布 模型 · ' : '')
+    + (fast ? '要 快 —— Turbo 9 步 就 出图' : '要 细节 / 文字 —— MOSS 最强');
+  return { id: pick.id, why };
 }
 function imageCompareHTML(cur, sug) {
   const rows = (state.models || [])
@@ -2344,7 +2357,6 @@ function imageCompareHTML(cur, sug) {
       def: m.default_steps || 0,
       fit: m.fit_note || '',
       state: m.state,
-      maxSize: m.max_size || 2048,
       qs: Array.isArray(m.quality_steps) ? m.quality_steps : [],
     }))
     .sort((a, b) => a.max - b.max);
@@ -2359,11 +2371,10 @@ function imageCompareHTML(cur, sug) {
     </div>` : '';
   return `<div class="img-compare">
     <table>
-      <thead><tr><th>模型</th><th>步数</th><th>画布上限</th><th>适合</th></tr></thead>
+      <thead><tr><th>模型</th><th>步数</th><th>适合</th></tr></thead>
       <tbody>${rows.map(r => `<tr class="${r.id === cur ? 'on' : ''}">
         <td>${esc(r.name)}${r.state === 'absent' ? ' <span class="field-note">· 权重不在</span>' : ''}</td>
         <td class="num">${esc(cfg(r))}</td>
-        <td class="num">${r.maxSize}×${r.maxSize}</td>
         <td class="fit">${esc(r.fit || '—')}</td>
       </tr>`).join('')}</tbody>
     </table>
@@ -2386,6 +2397,31 @@ function refreshImageCompare() {
     state.imgQuality = tier;
     renderImage();
   };
+}
+// 尺寸 那 一 行 —— 只 在 「你 要 的 尺寸 出不来」 的 时候 说话:
+// 出得动 就 一 句 上限; 出不动 就 告诉 你 该 换 谁.
+function refreshSizeNote() {
+  const note = $('#i-size-note'); if (!note) return;
+  const mc = imgModelCfg();
+  const wEl = $('#i-w'), hEl = $('#i-h');
+  const w = parseInt(wEl ? wEl.value : 0, 10) || 0;
+  const h = parseInt(hEl ? hEl.value : 0, 10) || 0;
+  const need = Math.max(w, h);
+  if (need <= mc.maxSize) {
+    note.innerHTML = `这个 模型 能出到 ${mc.maxSize}×${mc.maxSize}`;
+    return;
+  }
+  // 出不动 -> 找 能出 得动 的 模型, 让 用户 一键 换
+  const cand = (state.models || [])
+    .filter(m => (m.capabilities || []).includes('image') && (m.max_size || 0) >= need)
+    .sort((a, b) => (a.max_steps || 0) - (b.max_steps || 0));
+  const pick = cand[0];
+  note.innerHTML = pick
+    ? `这个 模型 最多 ${mc.maxSize}×${mc.maxSize} · ${need} 要 换 <strong>${esc(pick.name || pick.id)}</strong>
+       <button type="button" class="chip" id="i-fit-model">换成它</button>`
+    : `这个 模型 最多 ${mc.maxSize}×${mc.maxSize} · ${need} 没有 模型 出得动`;
+  const b = $('#i-fit-model');
+  if (b) b.onclick = () => { state.mediaModel.image = pick.id; renderImage(); };
 }
 function wireModelCard(cap) {
   const btn = $('#mdl-' + cap + '-btn'), menu = $('#mdl-' + cap + '-menu');
@@ -2700,6 +2736,9 @@ function wirePresetMenu(id, onPick) {
 }
 function renderImage() {
   const cur = modelCard('image', 'krea-turbo');
+  // 换 模型 时 保留 用户 已经 选 好 的 画布 —— 不然 「换成它」 一按, 尺寸 又 回到 1024
+  const curW = (($('#i-w') || {}).value) || 1024;
+  const curH = (($('#i-h') || {}).value) || 1024;
   const qmap = {}; IMG_QUALITY.forEach(x => qmap[x[0]] = x[1]);
   const mc = imgModelCfg();
   // 选中 的 档: 用户 选过 就 沿用 (换 模型 也 沿用); 没 选过 就 取 最 接近
@@ -2722,7 +2761,7 @@ function renderImage() {
     <fieldset>
       <section class="image-section media-chooser" data-mcard="image">${modelCardHTML('image', cur, '文生图 · 变体')}</section>
       <section class="image-section">
-        <div class="image-heading"><h3>出图模型</h3><span class="field-note">步数 / 画布上限 / 适合</span></div>
+        <div class="image-heading"><h3>出图模型</h3><span class="field-note">步数 / 适合</span></div>
         <div id="i-compare">${imageCompareHTML(cur, imageSuggest(qKey, 1024, 1024))}</div>
       </section>
       <section class="image-section">
@@ -2752,12 +2791,12 @@ function renderImage() {
       </section>
       <section class="image-section">
         <div class="image-canvas">
-          <label>宽度<input type="number" id="i-w" value="1024" min="256" max="${mc.maxSize}" step="16"></label>
+          <label>宽度<input type="number" id="i-w" value="${curW}" min="256" max="${mc.maxSize}" step="16"></label>
           <span>×</span>
-          <label>高度<input type="number" id="i-h" value="1024" min="256" max="${mc.maxSize}" step="16"></label>
+          <label>高度<input type="number" id="i-h" value="${curH}" min="256" max="${mc.maxSize}" step="16"></label>
           ${presetMenu('i-preset', IMG_SIZES.concat(IMG_SIZES_BIG.filter(s => Math.max(s[0], s[1]) <= mc.maxSize)))}
         </div>
-        <p class="field-note">这个 模型 画布 上限 ${mc.maxSize}×${mc.maxSize}${mc.maxSizeNote ? ' · ' + esc(mc.maxSizeNote) : ''}</p>
+        <p class="field-note" id="i-size-note"></p>
       </section>
       <details>
         <summary>高级选项</summary>
@@ -2792,9 +2831,9 @@ function renderImage() {
   wireModelCard('image');
   wireTemplateMenu('i-tpl-btn', 'i-tpl-menu', 'i-prompt', PROMPT_TEMPLATES);
   $('#i-enhance').onclick = () => enhancePrompt('i-prompt', 'i-enhance');
-  wirePresetMenu('i-preset', (w, h) => { $('#i-w').value = w; $('#i-h').value = h; refreshSuggest(); });
+  wirePresetMenu('i-preset', (w, h) => { $('#i-w').value = w; $('#i-h').value = h; refreshSuggest(); refreshSizeNote(); });
   const refreshSuggest = refreshImageCompare;
-  ['#i-w', '#i-h'].forEach(s => { const el = $(s); if (el) el.oninput = refreshSuggest; });
+  ['#i-w', '#i-h'].forEach(s => { const el = $(s); if (el) el.oninput = () => { refreshSuggest(); refreshSizeNote(); }; });
   const syncImageGen = bindGenToggle('i-go', 'i-prompt');
   $('#i-rand').onclick = () => { $('#i-seed').value = Math.floor(Math.random() * 4294967295); };
   const refs = [];
@@ -2894,6 +2933,7 @@ function renderImage() {
     } catch (e) { note.textContent = '失败：' + e.message; }
     finally { $('#i-go').disabled = false; syncImageGen(); }
   };
+  refreshSizeNote();
   renderRecent('image', 6);
 }
 
