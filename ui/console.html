@@ -4004,14 +4004,6 @@ const API_ROWS = [
   ['GET', '/metrics', 'Prometheus 指标'],
   ['GET', '/metrics.json', 'JSON 指标'],
   ['GET', '/health', '健康 探测'],
-  ['GET', '/api/tags', 'Ollama: 模型 列表'],
-  ['GET', '/api/ps', 'Ollama: 运行中 模型'],
-  ['GET', '/api/version', 'Ollama: 版本'],
-  ['POST', '/api/chat', 'Ollama: 对话'],
-  ['POST', '/api/generate', 'Ollama: 生成'],
-  ['POST', '/api/embed', 'Ollama: 向量'],
-  ['POST', '/api/show', 'Ollama: 模型 详情 (model_info)'],
-  ['POST', '/api/pull', 'Ollama: 拉取 模型 (NDJSON 流式)'],
   ['GET', '/v1/providers', 'Provider 代理'],
 ];
 function renderApi() {
@@ -4029,7 +4021,8 @@ function renderApi() {
   <div class="card" style="padding:4px 6px"><table>
     <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
     <tbody>${API_ROWS.map(r => `<tr><td class="mono">${esc(r[0])}</td><td class="mono">${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody>
-  </table></div>`;
+  </table></div>
+  <p class="hint" style="margin-top:10px">另外兼容 Ollama 那套端点 (/api/chat、/api/generate、/api/tags、/api/show、/api/pull、/api/embed、/api/ps、/api/version) —— 老客户端 能 直接 连, 就 不 一个 个 列 了.</p>`;
 }
 
 /* ============================================================ 设置 */
