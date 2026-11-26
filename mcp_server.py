@@ -247,8 +247,53 @@ def _tool_list_models(capability: str = "") -> dict:
             "loaded": m.get("loaded"),
             "size": m.get("size"),
             "bytes_on_disk": m.get("bytes_on_disk"),
+            "license": m.get("license"),
+            "license_free": m.get("license_free"),
+            "license_key": m.get("license_key"),
         })
     return {"ok": True, "count": len(out), "models": out}
+
+
+def _tool_list_licenses(model: str = "") -> dict:
+    """查 许可 条款 —— 商用 门槛 / 地域限制 / 署名要求 / 协议原文.
+
+    传 model id 就 查 那 一 个 权重 的 许可; 不 传 就 给 全部.
+    """
+    docs = (_get("/v1/licenses", timeout=30).get("data") or [])
+    by_key = {d.get("key"): d for d in docs}
+    if model:
+        # 从 模型表 里 找 它 的 license_key
+        rows = (_get("/v1/models", timeout=30).get("data") or [])
+        hit = None
+        for m in rows:
+            if m.get("id") == model:
+                hit = m
+                break
+        if hit is None:
+            return {"ok": False, "error": "没 这个 模型: %s" % model}
+        key = hit.get("license_key")
+        d = by_key.get(key)
+        if not d:
+            return {"ok": True, "model": model, "license": hit.get("license"),
+                    "license_key": key, "note": "这份 许可 没有 单独 的 条款 条目",
+                    "license_free": hit.get("license_free")}
+        full = _get("/v1/licenses/" + str(key), timeout=30)
+        return {
+            "ok": True,
+            "model": model,
+            "license": hit.get("license"),
+            "license_key": key,
+            "kind": d.get("kind"),
+            "spdx": d.get("spdx"),
+            "threshold": d.get("threshold"),
+            "territory": d.get("territory"),
+            "display": d.get("display"),
+            "terms": d.get("terms"),
+            "url": d.get("url"),
+            "local_path": d.get("path"),
+            "text": full.get("text", ""),
+        }
+    return {"ok": True, "count": len(docs), "licenses": docs}
 
 
 def _tool_load_model(model: str, capability: str = "") -> dict:
@@ -387,7 +432,11 @@ TOOLS = [
      "**任何 别的 工具 报 连不上 的时候, 先 调 这个**."),
     ("list_models", _tool_list_models,
      "列出 所有 模型: id / 能力 (image,video,audio,chat) / 有没有 权重 (state=ready|absent) / "
-     "在不在 已 加载 (loaded). 装 完 先 看 这个, 缺 权重 的 去 界面「模型」页 下载."),
+     "在不在 已 加载 (loaded) / 许可. 装 完 先 看 这个, 缺 权重 的 去 界面「模型」页 下载."),
+    ("list_licenses", _tool_list_licenses,
+     "查 权重 的 许可 条款: 商用 门槛 (营收 数字) / 适用地域 (排除 哪些 国家) / 署名 要求 / "
+     "协议 原文. 传 model id 查 那 一 个, 不 传 给 全部. "
+     "**要 判断 能不能 商用 就 调 这个** —— 框架 Apache-2.0 随便 商用, 门槛 在 权重 上."),
     ("load_model", _tool_load_model,
      "加载 一个 模型 (占 显存). capability: image / video / audio / chat. "
      "不 填 就 按 模型 id 自动 判断."),

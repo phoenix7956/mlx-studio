@@ -205,6 +205,17 @@ we modified.
 they stay under their own upstream terms, independent of this project's code licence.
 See the weight table in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
+⚠️ **The weights are where the commercial thresholds live.** MiniMax-H3 needs prior written
+authorisation above 20 M USD/year of revenue, and its agreement **excludes the EU, the UK,
+South Korea and the USA**. Krea-2-Turbo needs an enterprise licence once company-wide annual
+revenue reaches 1 M USD. Full clause breakdown, the application checklist and a
+"what do I do at my revenue level" guide live in
+**[docs/商用合规.md](docs/商用合规.md)**.
+
+You can also check it in the app: the **licence badge on the Models page is clickable** —
+it shows that weight's commercial threshold, applicable territory, attribution requirement
+and the licence text itself.
+
 ## Independent implementation
 
 MLX Studio is a clean-room implementation written from scratch. The repository contains **no**

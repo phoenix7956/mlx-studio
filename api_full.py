@@ -470,6 +470,9 @@ def model_entries(srv):
             "license_spdx": it.get("license_spdx") or "",
             "license_free": bool(it.get("license_free")),
             "license_url": it.get("license_url") or "",
+            # 许可 条款 的 key —— 前端 点 徽章 就 用 它 去 /v1/licenses/<key> 取
+            # 商用门槛 / 地区限制 / 署名要求 + 协议 原文.
+            "license_key": _license_key(it),
             # 魔搭 repo —— 下载 优先 走 魔搭 (国内 最快); pull 是 HF, 兜底.
             "ms": it.get("ms") or "",
             "guidance": it.get("guidance") if it.get("guidance") is not None else 0,
@@ -497,6 +500,15 @@ def find_model(srv, mid):
         if e["id"] == mid:
             return e
     return None
+
+
+def _license_key(it):
+    """模型行 -> 许可 条款 的 key. 认 不出来 返回 ''."""
+    try:
+        import licenses as _lic
+        return _lic.key_for(it) or ""
+    except Exception:
+        return ""
 
 
 def think_budget_for(srv, mid, body, thinking=True):
@@ -2960,6 +2972,36 @@ def voice_delete(srv, h, pid):
     h._j({"ok": bool(ok), "deleted": pid if ok else ""})
 
 
+# ============================================================ 许可 条款
+def licenses_list(srv, h):
+    """GET /v1/licenses —— 全部 许可 条款 (含 商用门槛 / 地区限制 / 署名要求)."""
+    try:
+        import licenses as _lic
+        docs = _lic.list_docs()
+    except Exception as e:
+        err(h, 500, "读 许可 清单 失败: %s" % e)
+        return
+    h._j({"object": "list", "data": docs})
+
+
+def license_doc(srv, h, key):
+    """GET /v1/licenses/<key> —— 一份 许可 的 条款 + 协议 原文."""
+    key = (key or "").strip()
+    try:
+        import licenses as _lic
+        docs = {d["key"]: d for d in _lic.list_docs()}
+        d = docs.get(key)
+        if not d:
+            err(h, 404, "没有 这份 许可: %s" % key)
+            return
+        d = dict(d)
+        d["text"] = _lic.read(key)
+        d["object"] = "license"
+        h._j(d)
+    except Exception as e:
+        err(h, 500, "读 许可 原文 失败: %s" % e)
+
+
 # ============================================================ 路由 表
 def handle(srv, h, method, path, query, body):
     """返回 True = 已 处理. 未 处理 的 落回 老 路由."""
@@ -2968,6 +3010,12 @@ def handle(srv, h, method, path, query, body):
     if method == "GET":
         if p == "/v1/models":
             h._j({"object": "list", "data": model_entries(srv)})
+            return True
+        if p == "/v1/licenses":
+            licenses_list(srv, h)
+            return True
+        if p.startswith("/v1/licenses/"):
+            license_doc(srv, h, p.rsplit("/", 1)[-1])
             return True
         if p == "/v1/providers":
             providers(srv, h)

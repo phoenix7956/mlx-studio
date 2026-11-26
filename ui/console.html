@@ -249,6 +249,25 @@ th{color:var(--text-2);font-weight:600;font-size:var(--fs-anno);text-transform:u
 .badge.ready{background:rgba(189,113,0,.13);color:var(--pending)}
 .badge.free{background:rgba(48,185,74,.15);color:var(--ok)}
 .badge.cond{background:rgba(189,113,0,.15);color:var(--pending)}
+/* 许可 徽章 —— 可点 (看 商用门槛 / 地区限制 / 协议原文) */
+button.badge.lic{cursor:pointer;border:0;font:inherit;font-size:var(--fs-anno);
+  font-family:inherit;line-height:1.6}
+button.badge.lic:hover{filter:brightness(1.12)}
+button.badge.lic:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* 许可 弹窗 */
+.lic-modal .modal{max-width:min(880px,92vw);max-height:86vh;display:flex;flex-direction:column}
+.lic-modal .modal-body{overflow:auto;flex:1;margin:0 -2px}
+.lic-modal .kv{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg-3)}
+.lic-modal .kv div{font-size:var(--fs-body);line-height:1.6;color:var(--text-2)}
+.lic-modal .kv b{color:var(--text-1)}
+.lic-modal .kv .warn{color:var(--pending)}
+.lic-modal ul{margin:0 0 12px;padding-left:20px}
+.lic-modal li{font-size:var(--fs-body);line-height:1.65;color:var(--text-2);margin-bottom:5px}
+.lic-modal pre{margin:0;padding:12px;border-radius:8px;background:var(--bg-3);
+  font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:44vh;overflow:auto}
+.lic-modal details{margin-top:10px}
+.lic-modal summary{cursor:pointer;font-size:var(--fs-body);color:var(--text-2)}
+.lic-modal a{color:var(--accent)}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-anno)}
 canvas.spark{width:100%;height:56px;display:block}
 .media-item{border:1px solid var(--sep);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
@@ -776,6 +795,8 @@ button.generate{width:100%;margin-top:16px;display:inline-flex;align-items:cente
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 条款 文本 里 用 **强调** —— 转成 粗体 (先 转义 再 换, 不会 引入 注入)
+const mdBold = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 // ---------- 图标: lucide 风格 的 内联 SVG (照 闭源 Studio 的 线性 图标) ----------
 const ICON = {
   models:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
@@ -935,6 +956,67 @@ function confirmDialog(o) {
     if (okBtn) okBtn.focus();
   });
 }
+
+/* 许可 弹窗 —— 模型页 点 许可 徽章: 商用门槛 / 地区限制 / 署名要求 + 协议 原文.
+   社区许可 (H3 / Krea-2) 有 真 的 门槛, 光 一个 徽章 看 不出来 —— 这里 摆 清楚. */
+function licenseModal(d) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-scrim lic-modal';
+  const kv = [];
+  if (d.threshold) kv.push(`<div><b>商用门槛：</b><span class="warn">${mdBold(d.threshold)}</span></div>`);
+  if (d.territory) kv.push(`<div><b>适用地域：</b><span class="warn">${mdBold(d.territory)}</span></div>`);
+  if (d.display) kv.push(`<div><b>署名要求：</b><span class="warn">${mdBold(d.display)}</span></div>`);
+  const terms = (d.terms || []).map(t => `<li>${mdBold(t)}</li>`).join('');
+  const txt = d.text ? `<details><summary>看 协议 原文</summary><pre>${esc(d.text)}</pre></details>` : '';
+  const src = d.path ? `<div style="font-size:var(--fs-anno);color:var(--text-2);margin-top:8px">本地原文：<code>${esc(d.path)}</code></div>` : '';
+  const link = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">看 上游 官方 协议 ↗</a>` : '';
+  wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true">
+    <h3>${esc(d.title || '许可')}</h3>
+    <div class="modal-body">
+      <div style="font-size:var(--fs-anno);color:var(--text-2);margin-bottom:10px">
+        <span class="badge ${d.kind === 'free' ? 'free' : 'cond'}">${d.kind === 'free' ? '✓ 自由许可' : '⚠ 社区许可'}</span>
+        ${d.spdx ? `<span class="badge" style="margin-left:6px">${esc(d.spdx)}</span>` : ''}
+      </div>
+      ${kv.length ? `<div class="kv">${kv.join('')}</div>` : ''}
+      ${terms ? `<ul>${terms}</ul>` : ''}
+      ${src}${link ? `<div style="margin-top:8px">${link}</div>` : ''}
+      ${txt}
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="primary" id="lic-close">知道了</button>
+    </div></div>`;
+  document.body.appendChild(wrap);
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    wrap.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+  wrap.querySelector('#lic-close').onclick = close;
+  wrap.onclick = (e) => { if (e.target === wrap) close(); };
+  document.addEventListener('keydown', onKey);
+  wrap.querySelector('#lic-close').focus();
+}
+async function showLicense(key) {
+  if (!key) return;
+  let d = null;
+  try {
+    d = await api('/v1/licenses/' + encodeURIComponent(key));
+  } catch (e) {
+    toastLong('读 许可 原文 失败：' + (e && e.message ? e.message : e));
+    return;
+  }
+  if (!d || d.error) { toastLong('没有 这份 许可 的 原文'); return; }
+  licenseModal(d);
+}
+// 深链: /?lic=<key> 直接 打开 那份 许可 —— 文档 / agent 可以 直接 链 过来
+// (例: http://127.0.0.1:11251/?lic=minimax-h3)
+function openLicenseFromURL() {
+  try {
+    const k = new URLSearchParams(location.search).get('lic');
+    if (k) showLicense(k);
+  } catch (e) { /* URLSearchParams 不认 就 算了 */ }
+}
+
 async function api(path, opts) {
   opts = opts || {};
   const base = state.server && state.server !== location.origin ? state.server : '';
@@ -1727,10 +1809,12 @@ function licenseBadgeHTML(r) {
   const txt = r.license || r.license_spdx || '';
   if (!txt) return '<span style="color:var(--text-2);font-size:12px">—</span>';
   const free = !!r.license_free;
+  const key = r.license_key || '';
   const tip = free
-    ? txt + ' —— 自由许可 (Apache-2.0 / MIT), 商用 也可以. 权重 许可 属于 模型作者.'
-    : txt + ' —— 社区许可, 有 附加条款 (商用门槛 / 署名 / 地区限制 等). 商用 前 请 自己 看 原文.';
-  return `<span class="badge ${free ? 'free' : 'cond'}" title="${esc(tip)}">${free ? '✓ ' : '⚠ '}${esc(txt)}</span>`;
+    ? txt + ' —— 自由许可 (Apache-2.0 / MIT), 商用 也可以. 点 看 条款.'
+    : txt + ' —— 社区许可, 有 附加条款 (商用门槛 / 署名 / 地区限制 等). 点 看 原文.';
+  if (!key) return `<span class="badge ${free ? 'free' : 'cond'}" title="${esc(tip)}">${free ? '✓ ' : '⚠ '}${esc(txt)}</span>`;
+  return `<button type="button" class="badge ${free ? 'free' : 'cond'} lic" data-lic="${esc(key)}" title="${esc(tip)}">${free ? '✓ ' : '⚠ '}${esc(txt)}</button>`;
 }
 // 引擎 可能 被 「闲置 30 分钟 自动 卸载」 掉 —— 只 改 状态 变了 的 行,
 // 不 重画 整页 (免得 弄丢 用户 的 筛选 / 焦点)
@@ -2348,6 +2432,11 @@ function refreshModelCards() {
 document.addEventListener('click', () => {
   $$('.image-menu-popup').forEach(p => { p.hidden = true; });
   $$('.image-menu button[aria-haspopup]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+});
+// 许可 徽章 —— 委托 (模型页 每次 刷新 都 重画 表格, 逐个 绑 会 漏)
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-lic]');
+  if (b) { e.preventDefault(); showLicense(b.getAttribute('data-lic')); }
 });
 // 提示词 模板 (照 闭源 的 「模板」 菜单)
 const PROMPT_TEMPLATES = [
@@ -4090,6 +4179,7 @@ async function boot() {
   renderSessList();
   go(bootPage());
   applyLang();   // 首页 的 气泡 文案 是 go() 里 注入 的, 再 走 一 遍 才 能 换 语种
+  openLicenseFromURL();   // 深链 /?lic=<key> —— 直接 打开 那份 许可
   setPollRange(state.range || 'live');
   pollMetrics();
   // 开机 就 拉 一次 /props —— 出片 页面 用 它 估 「预计 耗时」(按 上 次 实测 速度)

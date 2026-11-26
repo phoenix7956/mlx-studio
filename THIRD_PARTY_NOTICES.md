@@ -51,7 +51,8 @@ Agreement** 约束（不是开源协议）。分发 它 必须 满足 该协议 
 | ACE-Step 1.5 | MIT |
 | Whisper (faster-whisper) | MIT |
 | Chatterbox TTS | MIT |
-| VoxCPM2 / CosyVoice 2 / OmniVoice / IndexTTS-2 MLX 量化 | Apache-2.0 |
+| VoxCPM2 / CosyVoice 2 / OmniVoice（MLX 量化） | Apache-2.0 |
+| IndexTTS-2 / IndexTTS-2-MLX 量化 | bilibili 模型使用协议 —— **量化 不 改变 上游 权重 的 协议**，不能 当 Apache-2.0 用 |
 | MiniMax-Music3 | MiniMax-Music3 Community License（MIT 式 + 商业条款） |
 | MiniMax-H3 | MiniMax H3 Community License（营收门槛 / 署名 / 地区限制） |
 | Krea-2-Turbo | Krea 2 Community License |
