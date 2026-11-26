@@ -1802,6 +1802,19 @@ function modelActsHTML(r) {
   }
   return parts.join(' ');
 }
+// 权重 许可 徽章 —— 自由许可 (Apache-2.0 / MIT) 绿, 社区许可 (有 附加条款) 黄.
+// 仓库 里 不 带 权重, 许可 属于 模型作者 —— 这里 只 告诉 用户 这 条 是 哪 一 类.
+function licenseBadgeHTML(r) {
+  const txt = r.license || r.license_spdx || '';
+  if (!txt) return '<span style="color:var(--text-2);font-size:12px">—</span>';
+  const free = !!r.license_free;
+  const key = r.license_key || '';
+  const tip = free
+    ? txt + ' —— 自由许可 (Apache-2.0 / MIT), 商用 也可以. 点 看 条款.'
+    : txt + ' —— 社区许可, 有 附加条款 (商用门槛 / 署名 / 地区限制 等). 点 看 原文.';
+  if (!key) return `<span class="badge ${free ? 'free' : 'cond'}" title="${esc(tip)}">${free ? '✓ ' : '⚠ '}${esc(txt)}</span>`;
+  return `<button type="button" class="badge ${free ? 'free' : 'cond'} lic" data-lic="${esc(key)}" title="${esc(tip)}">${free ? '✓ ' : '⚠ '}${esc(txt)}</button>`;
+}
 // 引擎 可能 被 「闲置 30 分钟 自动 卸载」 掉 —— 只 改 状态 变了 的 行,
 // 不 重画 整页 (免得 弄丢 用户 的 筛选 / 焦点)
 async function refreshModelStates() {
@@ -1837,6 +1850,7 @@ async function renderModels() {
     // 删 权重 (磁盘 上 的 文件夹) —— 只 给 有 本地 权重 的 模型, 不可逆
     return `<tr data-mid="${esc(r.id)}" data-state="${esc(r.state || '')}"><td><div>${esc(r.name || r.id)}</div><div class="mono" style="color:var(--text-2)">${esc(r.id)}</div></td>
       <td><span class="badge ${st}">${esc(r.state)}</span></td>
+      <td>${licenseBadgeHTML(r)}</td>
       <td><div class="row-actions">${modelActsHTML(r)}</div></td></tr>`;
   };
   // 「别名」/「已弃用」 的 条目 —— 不 占 主视线, 但 折 起来 后 照样 能 加载 / 删 权重
@@ -1861,11 +1875,11 @@ async function renderModels() {
     <p class="page-sub mono" id="m-idle-policy">${idlePolicyHtml()}</p>
     <div class="searchbar">${svg('search', 14)}<input type="search" id="m-q" placeholder="筛选模型…"></div>
     <div class="card" style="padding:4px 6px"><table>
-      <thead><tr><th>模型</th><th>状态</th><th></th></tr></thead>
+      <thead><tr><th>模型</th><th>状态</th><th>许可</th><th></th></tr></thead>
       <tbody id="m-rows">${body}</tbody></table></div>
     ${oldBody ? `<details class="subbar" style="margin-top:14px"><summary class="tab">别名 / 已弃用（${old_.length}）</summary>
       <div class="card" style="padding:4px 6px;margin-top:8px"><table>
-        <thead><tr><th>模型</th><th>状态</th><th></th></tr></thead>
+        <thead><tr><th>模型</th><th>状态</th><th>许可</th><th></th></tr></thead>
         <tbody id="m-rows-old">${oldBody}</tbody></table></div></details>` : ''}
     <div class="section-title">扫描 模型目录</div>
     <div class="card"><div class="row">
@@ -2439,6 +2453,11 @@ function refreshModelCards() {
 document.addEventListener('click', () => {
   $$('.image-menu-popup').forEach(p => { p.hidden = true; });
   $$('.image-menu button[aria-haspopup]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+});
+// 许可 徽章 —— 委托 (模型页 每次 刷新 都 重画 表格, 逐个 绑 会 漏)
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-lic]');
+  if (b) { e.preventDefault(); showLicense(b.getAttribute('data-lic')); }
 });
 // 提示词 模板 (照 闭源 的 「模板」 菜单)
 const PROMPT_TEMPLATES = [
