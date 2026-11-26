@@ -98,7 +98,7 @@ for f in model_catalog.json; do
   cp "$CORE/$f" "$RUNTIME/" 2>/dev/null || true
 done
 # 跑批 那 条 路 的 脚本 —— 不装 的 话, 新 机器 上 "批量出片" 无 脚本 可 跑
-# (之前 就 漏 在 这: 包 里 有 run_full.py, 但 装 到 远端机 上 没有).
+# (之前 就 漏 在 这: 包 里 有 run_full.py, 但 装 到 第二台机 上 没有).
 for f in run_full.py run_batch.py batch_mv.sh finish_batch.sh; do
   [ -f "$CORE/$f" ] || [ -f "$ROOT/$f" ] || continue
   [ -f "$CORE/$f" ] && cp "$CORE/$f" "$RUNTIME/" 2>/dev/null || true
@@ -123,7 +123,7 @@ for d in minimax-h3_mlx_src krea2_engine_src port_minimax_h3_mlx; do
   done
 done
 # —— 我们 自己 的 补丁层 覆盖 到 厂商 源码 包 上 ——
-# port_minimax_h3_mlx = 我们 改过 的 H3 引擎 (参考图 / 远端机 无 Homebrew 的 ffmpeg 兜底 …).
+# port_minimax_h3_mlx = 我们 改过 的 H3 引擎 (参考图 / 没 Homebrew 的 机器 ffmpeg 兜底 …).
 # 运行时 import 的 是 厂商 源码 里 的 minimax_h3_mlx 包, **不是** port_minimax_h3_mlx ——
 # 不 覆盖 的 话, 补丁 就 是 死代码: 参考图 直接 TypeError, 远端机 上 ffmpeg 找不到.
 # 覆盖 必须 放在 上面 那 个 sync 之后 (sync 用 rsync --delete, 会 把 补丁 冲掉).
@@ -177,7 +177,7 @@ fi
 chmod +x "$RUNTIME/run_local_dev.sh" 2>/dev/null || true
 
 # —— 2.1.1 ffmpeg (出片 要 用 来 压 mp4) ——
-#   没 brew 的 机器 (比如 远端机) 没 ffmpeg → 出片 只 剩 帧 序列, 没有 mp4.
+#   没 brew 的 机器 没 ffmpeg → 出片 只 剩 帧 序列, 没有 mp4.
 #
 #   【开源 注意】ffmpeg 本体 是 LGPL/GPL, **不能 随 仓库 分发** —— 分发 就 会 让
 #   整个 项目 被 迫 改成 GPL. 所以 这里 **不 带 二进制**, 改 装 的时候 从
@@ -297,10 +297,13 @@ say "ffmpeg: ~/.ours/bin/ffmpeg (转发 imageio-ffmpeg / 系统 ffmpeg, 出片 �
 # 「第二台机」(出片 / 出图 节点) 的 连接 配置 ——
 #   开源版 不 写死 任何 地址. 装 的时候 带上 REMOTE_SSH_TARGET (或 REMOTE_SSH_HOST)
 #   就 写 进 ~/.ours/node.json; 不 带 就 不写 (本机 独立 跑 用 不 到).
-if [ -n "${REMOTE_SSH_TARGET:-}" ] || [ -n "${REMOTE_SSH_HOST:-}" ]; then
-  _t="${REMOTE_SSH_TARGET:-}"
-  if [ -z "$_t" ] && [ -n "${REMOTE_SSH_HOST:-}" ]; then
-    _t="${REMOTE_SSH_USER:-mlxstudio}@${REMOTE_SSH_HOST}"
+#   旧 名 (REMOTE_SSH_*) 仍然 认 —— 老 脚本 / 老 配置 不用 改.
+_rt="${REMOTE_SSH_TARGET:-${REMOTE_SSH_TARGET:-}}"
+_rh="${REMOTE_SSH_HOST:-${REMOTE_SSH_HOST:-}}"
+if [ -n "$_rt" ] || [ -n "$_rh" ]; then
+  _t="$_rt"
+  if [ -z "$_t" ] && [ -n "$_rh" ]; then
+    _t="${REMOTE_SSH_USER:-${REMOTE_SSH_USER:-mlxstudio}}@$_rh"
   fi
   printf '{"target": "%s"}\n' "$_t" > "$OURS/node.json" 2>/dev/null || true
   say "第二台机: ~/.ours/node.json -> $_t"
@@ -446,10 +449,11 @@ ENVF="$RUNTIME/env.sh"
   echo "export H3M_KREA_DIR_W=\"$KREA_W\""
   echo "export H3M_MLX_ROOT=\"$H3_ROOT\""
   echo "export H3M_QUANT_DIR=\"$OURS/quant/h3-mlx-4bit\""
-  # 真 ffmpeg: 本机 有 Homebrew (/opt/homebrew/bin), 远端机 没有 —— 它 的 在
+  # 真 ffmpeg: 本机 有 Homebrew (/opt/homebrew/bin), 没 brew 的 机器 没有 —— 它 的 在
   # ~/.ours/bin (install 放 的). 两个 都 加进 PATH, 免得 抽帧/预览 静默 失败.
   echo "export PATH=\"/opt/homebrew/bin:$OURS/bin:/usr/local/bin:\$PATH\""
-  echo "export MINEPROXY_NODE=local"
+  echo "export MLX_NODE_ROLE=local"
+  echo "export MINEPROXY_NODE=local"   # 老 内核 认 这 个
   # 一 首 歌 最长 多少 秒 (引擎 硬 上限) —— 128G 机器 给 到 480
   echo "export ACE_MAX_DURATION=\${ACE_MAX_DURATION:-480}"
 } > "$ENVF"

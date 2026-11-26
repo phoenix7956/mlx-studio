@@ -1,11 +1,11 @@
-"""我们 自己 的 本 地 大 模 型 引 擎 — Apple MLX 本 体 + mlx_lm, 全 在 远端机 本 地.
+"""我们 自己 的 本 地 大 模 型 引 擎 — Apple MLX 本 体 + mlx_lm, 全 在 本 地.
 
 内存纪律: load/unload 与 engine.Engine 一致, 必须 gc + mx.clear_cache,
 否则反复 load 堆冷页 (compressor 52G 真凶)."""
 import os, gc, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine import _free
-# 远端机 现有 Qwen3-0.8B-MLX 是 vision 重包 (mlx_lm 加载不到), 改走纯 Qwen3-0.8B-4bit
+# Qwen3-0.8B-MLX 是 vision 重包 (mlx_lm 加载不到), 改走纯 Qwen3-0.8B-4bit
 # (mlx-community 量化, 两边内核一致). 路径可被 H3M_LLM 覆盖.
 # 默认 Qwen3-4B (2026-11-10 魔塔 mlx-community/Qwen3-4B-4bit 拉完, 2.1G).
 # 0.8B 目录保留为 fallback: 4B 不在就回 0.8B (vision 重包加载不到, 但有 0.8B-4bit 纯包).

@@ -1,5 +1,5 @@
 """我们 自己 的 mlx_server — 彻底 不 依 靠 闭源 MLX-Serve / ComfyUI.
-远端机 .249 (96G) 出 视 频/图; 本 机 128G 出 歌/专辑 图/主控.
+第二台机 (远端 节点) 出 视 频/图; 本 机 出 歌/专辑 图/主控.
 模 型 不 驻 留: 置 闲 30min 自 动 卸 或 手 动 /unload; 批 量 跑 批 不 逐 段 卸.
 内 存 守 门: 可 用 <15G 拒 绝 起 视 频. 出 片 排 他 (一 次 一 片, 串 行).
 /v1/* = 壳 兼 容 层 (MLX-Serve Studio 壳 直 接 调 这 组 端 点), 打 我 们 自 己 的 内 核."""
@@ -15,7 +15,8 @@ except Exception:
     mx = None
 
 IDLE_S = 30*60
-NODE = os.environ.get("MINEPROXY_NODE","remote")  # 本 机 开 发 设 local, 远端机 默 认 remote
+NODE = os.environ.get("MLX_NODE_ROLE", os.environ.get("MINEPROXY_NODE","remote"))
+# NODE = local (本 机) / remote (第二台机). 旧 名 MINEPROXY_NODE 仍 认.
 ROUTE = {"video":"remote","image":"remote","music":"local"}
 
 # 生成 产物 的 文件名 前缀 / 后缀 -> 素材库 的 类型
@@ -1579,7 +1580,7 @@ class H(BaseHTTPRequestHandler):
             else:
                 self._j({"error":{"message":"缺 id","type":"invalid_request","code":400}},400)
         elif p=="/v1/video/nodes":
-            # 出片 节点 (本机 / 远端机) —— 镜头 在 哪 出, 合并 永远 在 本机
+            # 出片 节点 (本机 / 远端) —— 镜头 在 哪 出, 合并 永远 在 本机
             import video_mv as VM
             self._j(VM.nodes(force=q.get("force",["0"])[0]=="1"))
         elif p=="/v1/audio/files":
@@ -1808,7 +1809,7 @@ class H(BaseHTTPRequestHandler):
                              prompt_default=b.get("prompt") or ""))
             return
         elif p=="/v1/video/mv":
-            # MV 工作台 —— 镜头 (本机 或 远端机 出) + 本机 合并 + 配乐
+            # MV 工作台 —— 镜头 (本机 或 远端 出) + 本机 合并 + 配乐
             b=self._body_json()
             import video_mv as VM
             self._j(VM.submit(self.srv,
@@ -2403,7 +2404,7 @@ def _model_dir(it, local=None):
       ~/.ours/models/<org>/<name>                          (魔搭 布局)
       ~/.ours/models/mlm/<name>                            (我们 自建 的 对话 模型)
       ~/.ours/quant/<name>                                 (视频 DiT 量化)
-    catalog 里 只 写 了 其中 一 种 —— 换台 机器 就 认 不 出 了 (出图/出片 在 远端机 上
+    catalog 里 只 写 了 其中 一 种 —— 换台 机器 就 认 不 出 了 (出图/出片 在 远端 上
     曾 显示 absent, 其实 权重 好端端 在 硬盘 上). 所以 这里 挨个 试.
     """
     loc=os.path.expanduser(local if local is not None else (it.get("local","") or ""))

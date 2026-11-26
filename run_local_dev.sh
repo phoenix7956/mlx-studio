@@ -5,10 +5,10 @@
 # 用法: ./run_local_dev.sh 11251
 set -e
 cd "$(dirname "$0")"
-# 内核代码同一份 (本机 == 远端机), 只 override 权重/依赖 路径.
+# 内核代码同一份 (两台机 一致), 只 override 权重/依赖 路径.
 # 这 份 脚本 必须 **两 台 机器 都 能 跑** —— 之前 写 死 了 本机 的
-# ~/Desktop/rea/ours/_vendor, 拷 到 远端机 上 就 指 到 不存在 的 地方 (静默 走 空 路径).
-# 现在 按 "存在 就 用" 挑: 本机 128G 布局 优先, 远端机 96G 布局 兜底.
+# ~/Desktop/rea/ours/_vendor, 拷 到 另一台机 上 就 指 到 不存在 的 地方 (静默 走 空 路径).
+# 现在 按 "存在 就 用" 挑: 本机 布局 优先, 远端机 布局 兜底.
 pick_dir() {  # pick_dir <候选...> —— 挑 第一个 存在 的 目录; 都 不 存在 就 挑 第一个 (报错 时 能 看 出 想要 什么)
   local c
   for c in "$@"; do [ -d "$c" ] && { echo "$c"; return 0; }; done
@@ -40,7 +40,7 @@ export ACE_MUSIC_URL="${ACE_MUSIC_URL:-http://127.0.0.1:7861}"
 # 一 首 歌 最长 多少 秒 (引擎 硬 上限) —— 本机 128G, 240 太 短 (词多 的 歌 装 不 下)
 export ACE_MAX_DURATION="${ACE_MAX_DURATION:-480}"
 # 真 ffmpeg (本机 ~/.local/bin/ffmpeg 是 PyAV shim, 不会编码).
-# 远端机 没 Homebrew —— 它 的 真 ffmpeg 在 ~/.ours/bin (install 放 的), 一样 加 进 PATH.
+# 没 Homebrew 的 机器 —— 它 的 真 ffmpeg 在 ~/.ours/bin (install 放 的), 一样 加 进 PATH.
 export PATH="/opt/homebrew/bin:$HOME/.ours/bin:$HOME/bin-real:$PATH"
 # venv 也 按 存在 就 用 挑: 本机 开发 态 用 mtx (全能力), 远端机 用 h3m3.
 PY="$(pick_file \
@@ -48,6 +48,6 @@ PY="$(pick_file \
   "$HOME/.venvs/h3m3/bin/python" \
   "$HOME/.venvs/mlxstudio/bin/python")"
 PORT="${1:-11251}"
-export MINEPROXY_NODE=local
+export MLX_NODE_ROLE=local
 echo "[run_local_dev] :$PORT 全能力起 (视频/图/歌/LLM), 定位由使用者定, 内核同 远端机"
 exec $PY server.py --port "$PORT"

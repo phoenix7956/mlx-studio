@@ -13,7 +13,7 @@ def _target():
         t = remote_node.target()
         if t:
             return t
-    return os.environ.get("REMOTE_SSH_TARGET", "")
+    return os.environ.get("REMOTE_SSH_TARGET", os.environ.get("REMOTE_SSH_TARGET", ""))
 
 
 def _ffmpeg():
@@ -37,7 +37,7 @@ def node_read_done():
     d = json.loads(out)
     return d if isinstance(d,dict) else {}
 def fetch(node_path, local):
-    """帧 目 录 在 远端机, 远端机 没 ffmpeg -> scp 帧 + wav 回 本 机, 本 机 ffmpeg 合 mp4."""
+    """帧 目 录 在 远端 节点, 远端 没 ffmpeg -> scp 帧 + wav 回 本 机, 本 机 ffmpeg 合 mp4."""
     if os.path.exists(local): return
     import shutil
     d = node_path  # 帧 目 录 (如 /tmp/mx_video_1794050843)
@@ -64,10 +64,10 @@ def main():
     done = node_read_done()
     print(f"done={len(done)}")
     for k in sorted(done):
-        remote = done[k]["url"].split("file://")[-1]
-        base = os.path.basename(remote).replace(".mp4","") or "frames"
+        mp4 = done[k]["url"].split("file://")[-1]
+        base = os.path.basename(mp4).replace(".mp4","") or "frames"
         local = os.path.join(BASE, f"{k}_{base}.mp4")
-        fetch(remote, local)
+        fetch(mp4, local)
         print("  fetched", local)
     for grp in ("zh","en"):
         files = [os.path.join(BASE,f"{k}_{os.path.basename(done[k]['url']).replace('.mp4','')}.mp4")

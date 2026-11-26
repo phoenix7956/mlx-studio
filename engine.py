@@ -2,7 +2,7 @@
 会 话 内 DiT(4bit 25G) 常 驻; 出 片 时 调 port 的 pipeline (临 时 载 TE/VAE), 出 完 卸.
 峰 值 只 在 出 片 那 几 分 钟, 不 是 长 时 驻 留 87G."""
 import os, sys, time, gc
-# 内 核 一 份, 机 器 无 关 — 默 认 走 我 们 共 用 的 ~\.ours 布 局 (远端机 与 本 机 都 有 这 条 路).
+# 内 核 一 份, 机 器 无 关 — 默 认 走 我 们 共 用 的 ~\.ours 布 局 (两台机 都 有 这 条 路).
 # 本 机 开 发 覆 盖: H3M_PORT_DIR / H3M_MLX_ROOT / H3M_QUANT_DIR (指 到 本 机 权 重 路 径).
 PORT = os.environ.get("H3M_PORT_DIR", os.path.expanduser("~/.ours/rea-ours/_vendor/minimax-h3_mlx_src"))
 if PORT not in sys.path: sys.path.insert(0, PORT)
@@ -243,7 +243,7 @@ class Engine:
         #   · 批量 出片 / 不同 长度 / 不同 步数: 同理
         # 一次 调度表 变了 就 崩, 所以 长片 这条路 从来 没 跑 通 过.
         #
-        # 不 drop 的 代价: 4bit 下 多 占 ~6.5G 显存 (本机 128G / 远端机 96G 都 宽裕),
+        # 不 drop 的 代价: 4bit 下 多 占 ~6.5G 显存 两台机 都 宽裕,
         # 换来 的 是 任何 次数 的 连续 出片 都 不 会 崩 —— 值.
         res = self.pipe(prompt, duration_seconds=seconds, num_inference_steps=steps,
                         seed=seed, drop_adaln=False, **kw)

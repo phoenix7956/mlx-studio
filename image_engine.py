@@ -1,8 +1,8 @@
 """我们 自己 的 出 图 引擎 — Krea-2-Turbo (开源 krea2_engine) + MLX.
-权重全 在 远端机 本 地, 不 碰 本 机."""
+权重全 在 本 地, 不 碰 远端."""
 import os, sys, time, gc
 # Kernel code lives in two places: the rea vendor dir (this repo) and the
-# 远端机 shared ~/.ours path. Try both so the module works on either host.
+# shared ~/.ours path. Try both so the module works on either host.
 for _p in (
     os.environ.get("H3M_KREA_DIR", ""),
     os.path.expanduser("~/.ours/rea-ours/_vendor/krea2_engine_src"),
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine import _free
 
 # KREA_DIR: first env override, then the two known on-disk layouts
-# (远端机: ~/.ours/models/ddalcu/Krea-2-Turbo-MLX-Serve-mixed-4-8,
+# (~/.ours/models/ddalcu/Krea-2-Turbo-MLX-Serve-mixed-4-8,
 #  本机: ~/.ours/models/models/krea--Krea-2-Turbo/snapshots/master)
 def _home():
     """真实 用户 的 home —— 不 信 $HOME (有些 运行环境 HOME 是 临时 的)."""

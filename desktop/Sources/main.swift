@@ -168,7 +168,7 @@ final class Kernel {
         proc.executableURL = URL(fileURLWithPath: "/bin/bash")
         proc.arguments = [script, String(port)]
         var env = ProcessInfo.processInfo.environment
-        env["MINEPROXY_NODE"] = "local"
+        env["MLX_NODE_ROLE"] = "local"
         // 脚本 里 用 $HOME 找 venv / 模型 —— 必须 给 真实 用户 目录, 否则 继承 到 奇怪 的 HOME 会 起 不 来
         env["HOME"] = NSHomeDirectory()
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"

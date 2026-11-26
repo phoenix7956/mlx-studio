@@ -12,7 +12,7 @@
         MV:      镜头1 + 镜头2 + 镜头3 (+ 配乐)
 
 分工 (用户 定 的)
-    远端机   : 只 出 镜头 (它 机器 大, 有 权重, 出片 快)
+    远端机: 只 出 镜头 (它 机器 大, 有 权重, 出片 快)
     本机  : 做 合并 —— 拼接 (concat) + 配乐 (mux) 一律 在 本机 跑
 
     所 以 镜头 在 远端机 出 的 时候, 会 先 scp 回 本机, 再 在 本机 拼.
@@ -48,16 +48,16 @@ except Exception:                                   # pragma: no cover
     remote_node = None
 
 
-def _remote():
+def _node():
     """返回 (user, host) —— 开源版 不 写死 任何 机器 的 地址."""
     if remote_node is not None:
         return remote_node.user(), remote_node.host()
-    return (os.environ.get("REMOTE_SSH_USER", ""),
-            os.environ.get("REMOTE_SSH_HOST", ""))
+    return (os.environ.get("REMOTE_SSH_USER", os.environ.get("REMOTE_SSH_USER", "")),
+            os.environ.get("REMOTE_SSH_HOST", os.environ.get("REMOTE_SSH_HOST", "")))
 
 
-NODE_USER, NODE_HOST = _remote()
-NODE_PORT = os.environ.get("NODE_PORT", "11251")
+NODE_USER, NODE_HOST = _node()
+NODE_PORT = os.environ.get("REMOTE_PORT", os.environ.get("NODE_PORT", "11251"))
 
 _lock = threading.Lock()
 _jobs = {}
@@ -170,7 +170,7 @@ def _my_host():
 
 
 def _i_am_node():
-    """我 就是 远端机 这 台 机器 吗 (那 时候 不 该 再 出现 「远端机」 这个 节点)."""
+    """我 就是 远端 这 台 机器 吗 (那 时候 不 该 再 出现 「远端机」 这个 节点)."""
     if not NODE_HOST:
         return False
     mine = set()
@@ -425,7 +425,7 @@ def submit(srv, frames, prompts, seconds=5, width=832, height=480, steps=8,
     if music and not music_path:
         return {"ok": False, "error": "找 不 到 那 首 配乐"}
     node = (node or "local").lower()
-    if node not in ("local", "remote"):
+    if node not in ("local", "remote", "remote"):
         node = "local"
     shots = len(frames) - 1
     job_id = "vmv_%d" % int(time.time() * 1000)
@@ -448,7 +448,7 @@ def submit(srv, frames, prompts, seconds=5, width=832, height=480, steps=8,
             shot_dir = os.path.join(out_dir, "镜头")
             os.makedirs(shot_dir, exist_ok=True)
             clips = []
-            if node == "remote":
+            if node in ("remote", "remote"):
                 items = []
                 for i in range(shots):
                     prompt = prompts[min(i, len(prompts) - 1)]

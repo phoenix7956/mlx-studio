@@ -44,7 +44,7 @@ def main():
     args, rest = ap.parse_known_args()
 
     # 独立 装 的 时候, 本机 就是 全能 内核 (不 把 视频/图片 代理 给 别的 机器)
-    os.environ.setdefault("MINEPROXY_NODE", "local")
+    os.environ.setdefault("MLX_NODE_ROLE", "local")
 
     # 交给 内核 自己 的 参数 解析
     sys.argv = ["mlx-studio", "--port", str(args.port), "--host", args.host,

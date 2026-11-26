@@ -1,5 +1,5 @@
 import os, sys, time, json, urllib.parse, urllib.request, urllib.error
-# 远端机 的 内核 现在 跑 在 11251 (11250 那 条 老 plist 已经 不用 了) —— 
+# 内核 现在 跑 在 11251 (11250 那 条 老 plist 已经 不用 了) —— 
 # 端口 写 死 11250 的 时候, 跑批 直接 "Connection refused", 一 片 都 出 不 来.
 BASE = os.environ.get("MLX_BASE") or "http://127.0.0.1:11251"
 DONE=os.path.expanduser("~/.ours/mlx_server/done.json")

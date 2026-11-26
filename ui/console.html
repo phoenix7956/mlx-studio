@@ -4244,8 +4244,8 @@ async function vMvLoadNodes() {
     vMvNodes = [{ id: 'local', name: '本机', ok: true }];
   }
   // 默 认 用 远端机 出 镜头 (它 出片 快) —— 合并 依然 在 本机
-  const remote = vMvNodes.find(n => n.id === 'remote');
-  if (remote && remote.ok) vMvNode = 'remote';
+  const rem = vMvNodes.find(n => n.id === 'remote' || n.id === 'remote');
+  if (rem && rem.ok) vMvNode = rem.id;
   if (!box) return;
   box.innerHTML = vMvNodes.map(n => `
     <button type="button" data-n="${esc(n.id)}" aria-pressed="${n.id === vMvNode}" ${n.ok ? '' : 'disabled'}>${esc(n.name)}${n.ok ? '' : ' · 连不上'}</button>`).join('');
@@ -4261,7 +4261,7 @@ function vMvSyncNodeNote() {
   if (!note) return;
   const n = vMvNodes.find(x => x.id === vMvNode);
   note.textContent = n
-    ? (n.id === 'remote'
+    ? (n.id === 'remote' || n.id === 'remote'
       ? '镜头 在 远端机 出 —— 产物 会 拉 回 本机，本机 负责 拼接 + 配乐。'
       : '镜头 在 本机 出 —— 拼接 + 配乐 也 在 本机。')
     : '';
@@ -4367,7 +4367,7 @@ async function vMvGo() {
     } });
     if (!r.ok) throw new Error(r.error || '提交 失败');
     state.vidMvJob = r.job_id;
-    if (hint) hint.textContent = '任务 ' + r.job_id + ' · ' + r.shots + ' 个 镜头 · 出片 ' + (r.node === 'remote' ? '远端机' : '本机') + ' · 合并 本机';
+    if (hint) hint.textContent = '任务 ' + r.job_id + ' · ' + r.shots + ' 个 镜头 · 出片 ' + (r.node === 'remote' || r.node === 'remote' ? '远端机' : '本机') + ' · 合并 本机';
     vMvPoll();
   } catch (e) {
     if (log) log.textContent = '失败：' + e.message;
@@ -4397,7 +4397,7 @@ function vMvPoll() {
       const wrap = $('#v-mv-final-wrap'), vid = $('#v-mv-final'), note = $('#v-mv-final-note');
       if (wrap) wrap.hidden = false;
       if (vid && vid.getAttribute('src') !== r.mv.url) vid.src = r.mv.url;
-      if (note) note.textContent = ' · ' + (r.shots || []).length + ' 个 镜头 · ' + (r.node === 'remote' ? '远端机 出片 / 本机 合并' : '本机 出片 / 本机 合并');
+      if (note) note.textContent = ' · ' + (r.shots || []).length + ' 个 镜头 · ' + (r.node === 'remote' || r.node === 'remote' ? '远端机 出片 / 本机 合并' : '本机 出片 / 本机 合并');
     }
     if (r.status === 'running') { setTimeout(vMvPoll, 2000); return; }
     state.vidMvJob = null;

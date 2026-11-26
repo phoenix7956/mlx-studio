@@ -1,4 +1,4 @@
-"""本 机 出 歌 转 发 层 — 对 远端机 开 一 个 端 口, 收 到 出 歌 请 求 就 打 本 机 ACE (127.0.0.1:7860).
+"""本 机 出 歌 转 发 层 — 开 一 个 端 口, 收 到 出 歌 请 求 就 打 本 机 ACE (127.0.0.1:7860).
 不 碰 老 板 的 ACE 进 程, 只 做 转 发 + 落 盘 file://."""
 import json, os, time, base64, threading, argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler

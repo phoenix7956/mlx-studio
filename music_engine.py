@@ -1,4 +1,4 @@
-"""我们 自己 的 出 歌 引 擎 — ACE-Step (本机不动, 远端机 本 地 权 重 + MLX).
+"""我们 自己 的 出 歌 引 擎 — ACE-Step (本机不动, 本 地 权 重 + MLX).
 权 重 拉 到 ~/.ours/models/ace-step/ 后 就 能 跑."""
 import os, sys, gc, time, tempfile
 MODEL_DIR = os.path.expanduser("~/.ours/models/ace-step")
