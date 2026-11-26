@@ -88,6 +88,11 @@ chmod +x "$STAGE/install.sh"
 cp "$ROOT/clean.sh" "$STAGE/clean.sh"
 chmod +x "$STAGE/clean.sh"
 cp "$(dirname "$0")/安装说明.txt" "$STAGE/安装说明.txt"
+# 许可 (Apache-2.0 要求: 分发 必须 附带 LICENSE 原文 + NOTICE)
+for f in LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md; do
+  [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$STAGE/$f"
+  [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$K/$f"
+done
 
 # ---------------------------------------------------------------- 清理 (双击)
 cat > "$STAGE/清理旧文件.command" <<'CMD'

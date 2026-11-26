@@ -110,6 +110,12 @@ for f in STANDARD_WORKFLOW.md MV_PLAYBOOK.md; do
   [ -f "$CORE/$f" ] && cp "$CORE/$f" "$RUNTIME/" 2>/dev/null || true
   [ -f "$ROOT/$f" ] && [ ! -f "$CORE/$f" ] && cp "$ROOT/$f" "$RUNTIME/" 2>/dev/null || true
 done
+# 许可 (Apache-2.0 §4: 分发 时 必须 附带 LICENSE 原文 + NOTICE)
+for f in LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md; do
+  [ -f "$CORE/$f" ] || [ -f "$ROOT/$f" ] || continue
+  [ -f "$CORE/$f" ] && cp "$CORE/$f" "$RUNTIME/" 2>/dev/null || true
+  [ -f "$ROOT/$f" ] && [ ! -f "$CORE/$f" ] && cp "$ROOT/$f" "$RUNTIME/" 2>/dev/null || true
+done
 for d in ui tools engines; do
   [ -d "$CORE/$d" ] && sync_dir "$CORE/$d" "$RUNTIME/$d"
 done
