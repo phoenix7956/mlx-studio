@@ -93,6 +93,12 @@ for f in LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md; do
   [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$STAGE/$f"
   [ -f "$ROOT/$f" ] && cp "$ROOT/$f" "$K/$f"
 done
+# 文档 —— 商用合规 / Agent 接入 / 出片规范, 装 完 在 本机 能 查
+if [ -d "$ROOT/docs" ]; then
+  mkdir -p "$K/docs"
+  cp -R "$ROOT/docs/." "$K/docs/"
+  rm -rf "$K/docs/screenshots"
+fi
 
 # ---------------------------------------------------------------- 清理 (双击)
 cat > "$STAGE/清理旧文件.command" <<'CMD'

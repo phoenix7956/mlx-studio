@@ -119,6 +119,10 @@ done
 for d in ui tools engines; do
   [ -d "$CORE/$d" ] && sync_dir "$CORE/$d" "$RUNTIME/$d"
 done
+# 文档 (商用合规 / Agent 接入 / 出片规范 …) —— 装 完 机器 上 有 一份 能 查 的
+for base in "$CORE" "$ROOT"; do
+  [ -d "$base/docs" ] && sync_dir "$base/docs" "$RUNTIME/docs" && break
+done
 # 厂商 引擎 源码 (出片 MiniMax-H3 / 出图 Krea) —— 视频/图片 引擎 本体
 for d in minimax-h3_mlx_src krea2_engine_src port_minimax_h3_mlx; do
   for base in "$CORE" "$CORE/vendor" "$ROOT" "$ROOT/vendor"; do
