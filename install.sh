@@ -408,7 +408,8 @@ fi
 # ================================================================= 4. 环境 变量
 # —— Krea-2-Turbo 权重 目录 (指 真正 有 turbo.safetensors 的 那个) ——
 KREA_W=""
-for _kd in "$OURS/models/ddalcu/Krea-2-Turbo-MLX-Serve-mixed-4-8" \
+for _kd in "$OURS/models/Krea-2-Turbo-MLX-Serve-mixed-4-8" \
+           "$OURS/models/ddalcu/Krea-2-Turbo-MLX-Serve-mixed-4-8" \
            "$OURS/models/models/krea--Krea-2-Turbo/snapshots/master" \
            "$OURS/models/models/krea--Krea-2-Turbo/snapshots/main"; do
   if [ -f "$_kd/turbo.safetensors" ] || [ -f "$_kd/transformer_mixed_4_8.safetensors" ]; then
@@ -423,7 +424,9 @@ for _hd in "$OURS/models/models/MiniMax--MiniMax-H3/snapshots/master/FL2VA" \
            "$OURS/models/MiniMax/MiniMax-H3/FL2VA" \
            "$OURS/models/MiniMax-H3/FL2VA" \
            "$OURS/models/ddalcu/MiniMax-H3-FL2VA-MLX-Serve-4bit"; do
-  if [ -d "$_hd/transformer" ] || [ -d "$_hd" ]; then H3_ROOT="$_hd"; break; fi
+  # ⚠️ 只 看 text_encoder —— DiT(transformer) 已经 量化 成 ~/.ours/quant/h3-mlx-4bit,
+  #    FL2VA/transformer 那 份 bf16 (62G) 运行 时 根本 不 读, 别 因为 它 缺 就 走错 目录.
+  if [ -d "$_hd/text_encoder" ] || [ -d "$_hd" ]; then H3_ROOT="$_hd"; break; fi
 done
 [ -n "$H3_ROOT" ] || H3_ROOT="$OURS/models/models/MiniMax--MiniMax-H3/snapshots/master/FL2VA"
 

@@ -3,6 +3,7 @@
 #
 #   ./clean.sh            # 只 清 安全 的 垃圾 (推荐)
 #   ./clean.sh --deep     # 连 闭源 MLX-Serve 残留 / 开发 用 的 内核 服务 一起 清 (会 问 一 遍)
+#   ./clean.sh --slim     # 连 冗余 的 模型 副本 一起 清 (省 100G+ 硬盘; 见 第 6 步)
 #
 # 清 什么:
 #   · /tmp 里 的 老 产物 (mx_*) 与 探针 (mlx_probe_*) —— 资料库 会 把 前缀 撞 上 的 当成 产物
@@ -16,7 +17,9 @@
 set -e
 
 DEEP=0
+SLIM=0
 [ "${1:-}" = "--deep" ] && DEEP=1
+[ "${1:-}" = "--slim" ] && SLIM=1
 
 say()  { printf "\033[36m[清]\033[0m %s\n" "$*"; }
 warn() { printf "\033[33m[注意]\033[0m %s\n" "$*"; }
@@ -67,7 +70,45 @@ say "内核 缓存 (__pycache__ / .pyc) 已 清"
 purge "旧 的 用户 缓存" "$REAL_HOME/Library/Caches/com.ours.mlxstudio" \
      "$REAL_HOME/Library/Caches/com.ours.mlxsserve"* 2>/dev/null || true
 
-# —— 6. 报告 (不 自动 删) ——
+# —— 6. 冗余 的 模型 副本 (默认 只 报告; --slim 才 真 删) ——
+#    这 几 份 是 明确 冗余 的, 删 了 不 影响 出片:
+#      · FL2VA/transformer  的 bf16 (62G) —— DiT 已经 量化 成 ~/.ours/quant/h3-mlx-4bit,
+#        出片 时 根本 不 读 那 份 bf16 (只有 重新 量化 时 才 需要, 可 从 HF 重 下).
+#      · models/mt/          的 魔搭 下载 缓存 (15G) —— 顶层 已有 正本.
+#      · mlm/Qwen3-4B-8bit   的 重复 档 —— catalog 用 的是 mlm/Qwen3-4B-MLX.
+SLIM_PATHS=(
+  "$OURS/models/models/MiniMax--MiniMax-H3/snapshots/master/FL2VA/transformer"
+  "$OURS/models/MiniMax/MiniMax-H3/FL2VA/transformer"
+  "$OURS/models/MiniMax-H3/FL2VA/transformer"
+  "$OURS/models/mt"
+  "$OURS/models/mlm/Qwen3-4B-8bit"
+  "$OURS/models/local"
+)
+SLIM_HITS=()
+for f in "${SLIM_PATHS[@]}"; do
+  [ -e "$f" ] && SLIM_HITS+=("$f")
+done
+# ddalcu/Krea-... 是 软链 —— 魔搭 缓存 删 了 就 断 了, 先 改指 顶层 正本
+_LINK="$OURS/models/ddalcu/Krea-2-Turbo-MLX-Serve-mixed-4-8"
+_REAL="$OURS/models/Krea-2-Turbo-MLX-Serve-mixed-4-8"
+if [ -L "$_LINK" ] && [ -d "$_REAL" ]; then
+  rm -f "$_LINK" && ln -s "$_REAL" "$_LINK"
+  say "ddalcu/Krea 软链 已 改指 顶层 正本"
+fi
+if [ "${#SLIM_HITS[@]}" -gt 0 ]; then
+  echo
+  say "冗余 的 模型 副本 (删 了 不 影响 出片):"
+  for f in "${SLIM_HITS[@]}"; do
+    echo "    $(du -sh "$f" 2>/dev/null | cut -f1)  $f"
+  done
+  if [ "$SLIM" = "1" ]; then
+    purge "冗余 模型 副本" "${SLIM_HITS[@]}"
+  else
+    warn "想 一起 清 就 跑: ./clean.sh --slim"
+  fi
+fi
+
+# —— 7. 报告 (不 自动 删) ——
 echo
 if [ -d "$REAL_HOME/.mlx-serve" ]; then
   warn "还 留 着 闭源 MLX-Serve 的 残留: $REAL_HOME/.mlx-serve  ($(du -sh "$REAL_HOME/.mlx-serve" 2>/dev/null | cut -f1))"
@@ -80,7 +121,7 @@ for p in "$REAL_HOME/Library/LaunchAgents/com.codex.mlxserver-dev.plist" \
 done
 [ -d "$OURS/models" ] && say "模型 权重 保留 在: $OURS/models  ($(du -sh "$OURS/models" 2>/dev/null | cut -f1))"
 
-# —— 7. --deep: 闭源 残留 + 开发 服务 ——
+# —— 8. --deep: 闭源 残留 + 开发 服务 ——
 if [ "$DEEP" = "1" ]; then
   echo
   printf "要 连 闭源 残留 (~/.mlx-serve) 和 开发 用 的 内核 服务 一起 清 掉? [y/N] "

@@ -232,15 +232,36 @@ silence_latent.pt
 |---|---|---|---|---|
 | `acestep-v15-turbo` | 基座（未微调） | — | — | 对照组 |
 | `acestep-suno-e1` | epoch 1 checkpoint | 16/32 | 2.0 | **studio 里 `ours/ace-step-suno-mlx` 用的就是这份** |
-| `acestep-suno-e2` | epoch 2 checkpoint | 16/32 | 2.0 | studio 里 `ours/ace-step-suno-e2-mlx` 用的就是这份 |
-| `acestep-suno-s10` | epoch 1 | 16/32 | **1.0** | 强度减半档（`merge_lora.py --scale 1.0`） |
-| `acestep-suno-s05` | epoch 1 | 16/32 | **0.5** | 强度四分之一档 |
-| `acestep-suno-s025` | epoch 1 | 16/32 | **0.25** | 强度八分之一档 |
-| `acestep-suno` | **`lora-smoke`**（8 样本） | 8/16 | 2.0 | ⚠️ **不是**正式训练结果，是 5.2 节「空效应」标定那一份 |
 
 > ⚠️ 坑：`acestep-suno` 这个名字看着像"正式的"，实际是 8 样本 smoke run 的产物
 > （Δ 权重 0.03%，与基座音频相关 0.9995）。**别拿它出歌**。
 > 真正挂进 studio 的是 `acestep-suno-e1`。
+
+### 磁盘上 只 留 一份
+
+上面 那 张 表 里 **只有 `acestep-suno-e1` 会 留在 硬盘 上**。其余 几 档
+（`e2` / `s10` / `s05` / `s025` / smoke 那 份）**已 按「只 留 一个」清 掉** ——
+每 档 是 4.5G 的 完整 合并 权重，堆 着 只 是 浪费 硬盘。
+
+**随时 能 重新 合并 出来** —— 原始 PEFT adapter 还 在（见上面 第 3 行）：
+
+```bash
+PY=~/.venvs/ace/bin/python
+cd 实现代码/suno_train
+
+# epoch 2 对照 档
+$PY merge_lora.py --base ~/.ours/models/ace-step-mlx/acestep-v15-turbo \
+                  --lora ~/.ours/train-suno/lora/checkpoints/epoch_2_loss_0.2312/adapter \
+                  --scale 2.0 --out ~/.ours/models/ace-step-mlx/acestep-suno-e2
+
+# 强度 档 (同一 个 epoch 1 adapter, 改 scale)
+$PY merge_lora.py --base ~/.ours/models/ace-step-mlx/acestep-v15-turbo \
+                  --lora ~/.ours/train-suno/lora/checkpoints/epoch_1_loss_0.2606/adapter \
+                  --scale 1.0 --out ~/.ours/models/ace-step-mlx/acestep-suno-s10
+```
+
+`scale` 取 `2.0 / 1.0 / 0.5 / 0.25` 就是 e2 / s10 / s05 / s025 四 档。
+合并 完 在 studio 里 选 对应 的 权重 目录 即可。
 
 ---
 
@@ -356,7 +377,6 @@ studio 出歌路径原本会**丢掉 seed**（每次结果都不一样）。
 | `实现代码/库/suno公开曲库.jsonl` | 训练语料索引（prompt / tags / 音频直链） |
 | `~/.ours/train-suno/` | 工作区（tensors / lora / 留出集 / 日志 / ab 评测结果） |
 | `~/.ours/models/ace-step-mlx/acestep-suno-e1/` | epoch 1 合并权重（studio 在用） |
-| `~/.ours/models/ace-step-mlx/acestep-suno-e2/` | epoch 2 合并权重（对照组） |
-| `~/.ours/models/ace-step-mlx/acestep-suno-s10/s05/s025/` | 同 epoch 1，scale 1.0 / 0.5 / 0.25 强度档 |
+| `~/.ours/train-suno/lora*/…/adapter/` | 原始 PEFT adapter（**小** —— 其余 档 靠 它 重新 合并） |
 | `~/Library/LaunchAgents/com.ours.suno-train.plist` | 训练守护 |
 | `mlx-studio` → `music_mlx.py` | `ours/ace-step-suno-mlx` 引擎注册 |
