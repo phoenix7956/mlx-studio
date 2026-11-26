@@ -15,7 +15,7 @@ krea/Krea-2-Turbo and is not an official Krea product.
 
 Modifications
 -------------
-The MLX Studio project (https://github.com/ours-mlx/mlx-studio) redistributed
+The MLX Studio project (https://github.com/phoenix7956/mlx-studio) redistributed
 this source tree with the following changes:
 
   * the package was renamed from `krea2/` to `krea2_engine/` so it can coexist
