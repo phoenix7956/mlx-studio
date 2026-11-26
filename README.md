@@ -11,6 +11,24 @@
 
 ---
 
+## 界面
+
+**音乐工作台** —— 出歌引擎可加载 / 卸载，风格标签、歌词段落、广场、作品库、批量出歌都在这一页：
+
+![音乐工作台](docs/screenshots/音乐工作台.png)
+
+**视频生成** —— 文生视频 / 图生视频 / 首尾帧三选一，镜头列表（每镜一条提示词 + 一对首尾帧），
+「要声音」勾上就出带音轨的成片：
+
+![视频生成](docs/screenshots/视频生成.png)
+
+**模型页** —— 每个权重都带许可徽章，能一键筛「只看自由许可」；模型行只有「下载 / 删除」，
+加载卸载在各自的项目页里做：
+
+![模型页](docs/screenshots/模型页.png)
+
+---
+
 ## 它能干什么
 
 12 个页面，一个 App：
@@ -170,4 +188,16 @@ python3 -m venv ~/.venvs/mlxstudio
 ~/.venvs/mlxstudio/bin/python smoke_contract.py    http://127.0.0.1:11251
 ~/.venvs/mlxstudio/bin/python smoke_capabilities.py http://127.0.0.1:11251
 ```
+
+提交前 自检（CI 也 跑 这 几 条）：
+
+```bash
+python3 tools/check_catalog.py
+bash -n install.sh && bash -n clean.sh
+python3 -m compileall -q .
+```
+
+参与开发 看 [`CONTRIBUTING.md`](CONTRIBUTING.md)；
+报 漏洞 看 [`SECURITY.md`](SECURITY.md)；
+仓库 边界 / 密钥 / 第二台机 怎么 接 看 [`docs/开源说明.md`](docs/开源说明.md)。
 
