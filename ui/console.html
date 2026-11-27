@@ -2819,7 +2819,7 @@ function renderImage() {
     // 挂上的 图 要 看得见 —— 缩略图 + 「源图 / 参考 N」标 + 移除按钮
     $('#i-refs-thumbs').innerHTML = refs.map((r, i) => (
       '<div class="ref-thumb">'
-      + '<img src="' + esc('data:' + r.mime + ';base64,' + r.b64) + '" alt="">'
+      + '<img src="' + esc(r.preview || ('data:' + r.mime + ';base64,' + r.b64)) + '" alt="">'
       + '<b>' + (i === 0 ? '源图' : '参考 ' + i) + '</b>'
       + '<button type="button" class="rm" data-i="' + i + '" title="移除" aria-label="移除第 ' + (i + 1) + ' 张">×</button>'
       + '</div>'
@@ -2833,12 +2833,32 @@ function renderImage() {
       ? ('已挂 ' + refs.length + ' 张参考图（源图 + ' + Math.max(0, refs.length - 1) + ' 参考图）。模式（文生图 / 编辑 / 变体）在「高级选项」里切换。')
       : '在提示词的引导下，为现有图像生成变体（图像到图像）。最多使用四张图像（源图像加三张参考图像）。模式（文生图 / 编辑 / 变体）在「高级选项」里切换。';
   };
+  // HEIC/HEIF —— Chrome 解 不 开 (WebKit 能), 预览 让 服务端 转 一 张 JPEG 回来
+  const isHeif = (b64) => {
+    try {
+      const head = atob(b64.slice(0, 64));
+      return head.slice(4, 8) === 'ftyp'
+        && /heic|heix|hevc|hevx|heim|heis|hevm|hevs|heif|mif1|msf1/.test(head.slice(0, 64));
+    } catch (e) { return false; }
+  };
+  const previewFor = async (r) => {
+    const raw = 'data:' + r.mime + ';base64,' + r.b64;
+    if (!isHeif(r.b64)) return raw;
+    try {
+      const res = await api('/v1/images/preview', { method: 'POST', body: { image: r.b64 } });
+      if (res && res.data_url) return res.data_url;
+    } catch (e) { /* 转 不 了 就 用 原始 */ }
+    return raw;
+  };
   const addRefs = async (files) => {
     for (const f of files) {
       if (refs.length >= 4) break;
       const b64 = await readFileB64(f);
       if (!b64) continue;
-      refs.push({ b64, mime: (f.type && f.type.indexOf('image/') === 0) ? f.type : sniffMime(b64) });
+      const mime = (f.type && f.type.indexOf('image/') === 0) ? f.type : sniffMime(b64);
+      const r = { b64, mime, preview: null };
+      refs.push(r);
+      r.preview = await previewFor(r);
     }
     setRefs();
   };

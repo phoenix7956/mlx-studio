@@ -149,22 +149,124 @@ def _music_max_duration():
         return 480.0
 
 
+def _sips_convert(raw, fmt="png", max_side=None):
+    """HEIC / HEIF -> 别的 格式 —— PIL 不认 (没 装 pillow-heif), 但 macOS 自带 sips 能转.
+    转 不 了 就 None (调用方 走 原路径 报错)."""
+    if not isinstance(raw, (bytes, bytearray)) or len(raw) < 16:
+        return None
+    raw = bytes(raw)
+    if raw[4:8] != b"ftyp":
+        return None
+    # ftyp 的 major brand + compatible brands —— HEIC 系 的 都 在 这 12 个 里
+    brands = (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis",
+              b"hevm", b"hevs", b"heif", b"mif1", b"msf1")
+    if not any(b in raw[:64] for b in brands):
+        return None
+    src = dst = None
+    try:
+        import subprocess
+        import tempfile
+        tf = tempfile.NamedTemporaryFile(suffix=".heic", delete=False)
+        src = tf.name
+        tf.write(raw)
+        tf.close()
+        dst = src + "." + fmt
+        cmd = ["/usr/bin/sips", "-s", "format", fmt, src, "--out", dst]
+        if max_side:
+            cmd += ["-Z", str(int(max_side))]
+        subprocess.run(cmd, check=True, capture_output=True, timeout=60)
+        with open(dst, "rb") as f:
+            out = f.read()
+        return out or None
+    except Exception:
+        return None
+    finally:
+        for p in (src, dst):
+            try:
+                if p and os.path.exists(p):
+                    os.unlink(p)
+            except Exception:
+                pass
+
+
+def _heif_to_png(raw):
+    """HEIC/HEIF -> PNG 字节 (兼容 老 调用方)."""
+    return _sips_convert(raw, fmt="png")
+
+
 def load_image_any(src):
     """file:// 路径 / data URL / base64 / bytes -> PIL.Image."""
     from PIL import Image
     import base64 as _b64
     import io as _io
+
+    def _open(raw):
+        """PIL 认 不 出 就 试 HEIC -> PNG (sips)."""
+        try:
+            return Image.open(_io.BytesIO(raw))
+        except Exception:
+            conv = _heif_to_png(raw)
+            if conv:
+                return Image.open(_io.BytesIO(conv))
+            raise
+
     if isinstance(src, (bytes, bytearray)):
-        return Image.open(_io.BytesIO(bytes(src)))
+        return _open(bytes(src))
     s = str(src)
     if s.startswith("file://"):
-        return Image.open(s[7:])
+        with open(s[7:], "rb") as f:
+            return _open(f.read())
     if s.startswith("data:"):
         s = s.split(",", 1)[-1]
     if os.path.isfile(s):
-        return Image.open(s)
+        with open(s, "rb") as f:
+            return _open(f.read())
     raw = _b64.b64decode(s + "=" * (-len(s) % 4))
-    return Image.open(_io.BytesIO(raw))
+    return _open(raw)
+
+
+def images_preview(srv, h, b):
+    """UI 缩略图 预览 —— 浏览器 (和 PIL) 都 解 不 开 的 格式 (HEIC/HEIF), 在 这 边 转 好 再 回去.
+
+    入参 {"image": "<base64 或 data URL>"}; 出参 {"data_url": "data:image/jpeg;base64,..."}.
+    只 给 控制台 用 —— 生成 路径 上 还是 发 原始 字节 (后端 自己 转).
+    """
+    src = _strip_b64(b.get("image") or b.get("data") or b.get("b64"))
+    if not src:
+        err(h, 400, "image is required", param="image")
+        return
+    try:
+        raw = base64.b64decode(src + "=" * (-len(src) % 4))
+    except Exception:
+        err(h, 400, "image is not valid base64", param="image")
+        return
+    from PIL import Image
+    import io as _io
+    im = None
+    try:
+        im = Image.open(_io.BytesIO(raw))
+        im.load()
+    except Exception:
+        conv = _sips_convert(raw, fmt="jpeg", max_side=1024)
+        if not conv:
+            err(h, 400, "cannot decode image", param="image")
+            return
+        try:
+            im = Image.open(_io.BytesIO(conv))
+            im.load()
+        except Exception:
+            err(h, 400, "cannot decode image", param="image")
+            return
+    if im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    w, hh = im.size
+    scale = min(1.0, 1024.0 / max(w, hh))
+    if scale < 1.0:
+        im = im.resize((max(1, int(w * scale)), max(1, int(hh * scale))), Image.LANCZOS)
+    buf = _io.BytesIO()
+    im.save(buf, format="JPEG", quality=82)
+    data_url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    h._j({"data_url": data_url, "width": im.size[0], "height": im.size[1]})
 
 
 # ============================================================ 错误 / SSE 契约
@@ -3199,6 +3301,9 @@ def handle(srv, h, method, path, query, body):
             return True
         if p == "/v1/images/edits":
             images_edits(srv, h, body)
+            return True
+        if p == "/v1/images/preview":
+            images_preview(srv, h, body)
             return True
         if p == "/v1/audio/speech":
             audio_speech(srv, h, body)
