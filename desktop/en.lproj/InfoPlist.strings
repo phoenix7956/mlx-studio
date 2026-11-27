@@ -1,0 +1,7 @@
+/* English localization — for people whose macOS is not set to Chinese.
+   The app's own UI is hard-coded Chinese; this only covers the *system*
+   strings (open/save panel, WebKit context menu) so they match the OS. */
+
+CFBundleName = "MLX Serve Studio";
+CFBundleDisplayName = "MLX Serve Studio";
+CFBundleGetInfoString = "Local MLX inference console (music / images / chat)";

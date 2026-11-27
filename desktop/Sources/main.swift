@@ -737,9 +737,12 @@ final class ContainerView: NSView {
 // 强制 App 语言 = 简体中文. AppKit 的 选 文件 面板 (侧栏 Recents/Applications/...) 和
 // WebKit 的 右键 菜单 (Open Image in New Window/...) 都 按 **App 的 语言** 取字符串,
 // 不是 按 系统 语言 —— bundle 里 没有 zh-Hans.lproj 就 全部 退回 英文.
-// 这里 再 钉 一次 AppleLanguages, 保证 就算 换 了 台 没 装 lproj 的 机器 也 是 中文.
-UserDefaults.standard.register(defaults: ["AppleLanguages": ["zh-Hans"]])
-UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+// 这里 再 钉 一次, 保证 就算 换 了 台 没 装 lproj 的 机器 也 对得上.
+// 只 在 系统 本来 就 是 中文 时 才 钉 —— 别 抢 英文 系统 的 用户 (他们 该 看 英文 面板).
+if Locale.preferredLanguages.contains(where: { $0.lowercased().hasPrefix("zh") }) {
+    UserDefaults.standard.register(defaults: ["AppleLanguages": ["zh-Hans"]])
+    UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+}
 
 let app = NSApplication.shared
 let delegate = AppDelegate()
