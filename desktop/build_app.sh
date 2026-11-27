@@ -36,6 +36,14 @@ if [ -f "$ICON" ]; then
   cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 fi
 
+# 3.5) 中文 本地化 —— 系统 面板 (选 文件) 和 WebKit 右键 菜单 都 按 App 的 语言 取 字符串.
+#       bundle 里 没有 zh-Hans.lproj -> 那些 菜单 全 是 英文.
+for L in zh-Hans.lproj en.lproj; do
+  [ -d "$L" ] || continue
+  mkdir -p "$APP/Contents/Resources/$L"
+  cp "$L"/* "$APP/Contents/Resources/$L/" 2>/dev/null || true
+done
+
 # 4) 内核 代码 —— 装 到 别的 mac 上 时, app 自己 就 带 着 内核
 K="$APP/Contents/Resources/kernel"
 mkdir -p "$K"

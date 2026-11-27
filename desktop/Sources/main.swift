@@ -197,8 +197,10 @@ final class StatusBar: NSView {
     private let label = NSTextField(labelWithString: "连接 中 …")
     private let reloadBtn = NSButton(title: "重新加载", target: nil, action: nil)
     private let browserBtn = NSButton(title: "浏览器打开", target: nil, action: nil)
+    private let outBtn = NSButton(title: "输出文件夹", target: nil, action: nil)
     var onReload: (() -> Void)?
     var onBrowser: (() -> Void)?
+    var onOutputs: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -211,8 +213,9 @@ final class StatusBar: NSView {
         label.textColor = .secondaryLabelColor
         reloadBtn.target = self; reloadBtn.action = #selector(reload)
         browserBtn.target = self; browserBtn.action = #selector(openBrowser)
-        for b in [reloadBtn, browserBtn] { b.bezelStyle = .inline; b.controlSize = .small; b.isBordered = true }
-        addSubview(dot); addSubview(label); addSubview(reloadBtn); addSubview(browserBtn)
+        outBtn.target = self; outBtn.action = #selector(openOutputs)
+        for b in [reloadBtn, browserBtn, outBtn] { b.bezelStyle = .inline; b.controlSize = .small; b.isBordered = true }
+        addSubview(dot); addSubview(label); addSubview(reloadBtn); addSubview(browserBtn); addSubview(outBtn)
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -228,9 +231,12 @@ final class StatusBar: NSView {
         let bw: CGFloat = 78
         browserBtn.frame = NSRect(x: bounds.width - bw - 12, y: (h - 22) / 2, width: bw, height: 22)
         reloadBtn.frame = NSRect(x: bounds.width - bw * 2 - 24, y: (h - 22) / 2, width: bw, height: 22)
+        let ow: CGFloat = 88
+        outBtn.frame = NSRect(x: bounds.width - bw * 2 - 24 - ow - 12, y: (h - 22) / 2, width: ow, height: 22)
     }
     @objc private func reload() { onReload?() }
     @objc private func openBrowser() { onBrowser?() }
+    @objc private func openOutputs() { onOutputs?() }
 }
 
 // MARK: - 没 内核 时 的 兜底 视图
@@ -369,6 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusBar = StatusBar(frame: .zero)
         statusBar.onReload = { self.reloadWeb() }
         statusBar.onBrowser = { if let u = URL(string: Kernel.shared.base + "/") { NSWorkspace.shared.open(u) } }
+        statusBar.onOutputs = { self.openOutputFolder() }
 
         downView = DownView(frame: .zero)
         downView.onStart = { Kernel.shared.start(); self.downView.setBusy(true) }
@@ -468,6 +475,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let u = URL(string: Kernel.shared.base + (startPath ?? "/")) else { return }
         webLoaded = true
         web.load(URLRequest(url: u))
+    }
+
+    // 输出 目录 —— 一键 到 访达. 路径 向 内核 要 (可能 被 MLX_OUT_DIR 改过),
+    // 拿 不 到 就 退回 默认 的 ~/Documents/MLX Studio 输出
+    func openOutputFolder() {
+        let fallback = NSHomeDirectory() + "/Documents/MLX Studio 输出"
+        guard let u = URL(string: "\(Kernel.shared.base)/v1/outputs") else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: fallback)); return
+        }
+        var req = URLRequest(url: u)
+        req.timeoutInterval = 4
+        req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        // 后端 是 HTTP/1.0 BaseHTTPServer, 连接 用完 就 关 —— 必须 用 新 会话
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 4
+        cfg.httpShouldSetCookies = false
+        cfg.urlCache = nil
+        cfg.httpAdditionalHeaders = ["Cache-Control": "no-cache"]
+        URLSession(configuration: cfg).dataTask(with: req) { data, _, _ in
+            var root: String? = nil
+            if let data = data,
+               let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                root = j["root"] as? String
+            }
+            DispatchQueue.main.async {
+                let p = (root?.isEmpty == false ? root! : fallback)
+                NSWorkspace.shared.open(URL(fileURLWithPath: p))
+            }
+        }.resume()
     }
 
     func setStatus(_ t: String, ok: Bool) { statusBar.setStatus(t, ok: ok) }
@@ -698,6 +734,13 @@ final class ContainerView: NSView {
 }
 
 // 入口 (不用 SwiftUI 的 @main: 顶层 代码 需要 以 main.swift 命名 且 不能 -parse-as-library)
+// 强制 App 语言 = 简体中文. AppKit 的 选 文件 面板 (侧栏 Recents/Applications/...) 和
+// WebKit 的 右键 菜单 (Open Image in New Window/...) 都 按 **App 的 语言** 取字符串,
+// 不是 按 系统 语言 —— bundle 里 没有 zh-Hans.lproj 就 全部 退回 英文.
+// 这里 再 钉 一次 AppleLanguages, 保证 就算 换 了 台 没 装 lproj 的 机器 也 是 中文.
+UserDefaults.standard.register(defaults: ["AppleLanguages": ["zh-Hans"]])
+UserDefaults.standard.set(["zh-Hans"], forKey: "AppleLanguages")
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

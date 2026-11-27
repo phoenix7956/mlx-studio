@@ -843,6 +843,8 @@ const ICON = {
   playlist:'<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M2 6h11"/><path d="M2 12h8"/><path d="M2 18h5"/>',
   trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>',
   users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'folder-open':'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
 };
 const svg = (name, size) => '<svg class="ic-svg" viewBox="0 0 24 24" width="' + (size || 17) + '" height="' + (size || 17) +
   '" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[name] || '') + '</svg>';
@@ -1052,6 +1054,22 @@ async function api(path, opts) {
   }
   return data;
 }
+
+// 输出 目录 —— 一键 跳 到 访达 (整个 输出 根目录 / 具体 某个 产物)
+const outOpenRoot = async () => {
+  try {
+    await api('/v1/outputs', { method: 'POST', body: { action: 'open' } });
+    toast('已 打开 输出 目录');
+  } catch (e) { toast('打开 失败: ' + e.message); }
+};
+const outReveal = async (url) => {
+  const rel = decodeURIComponent(String(url || '').split('/out/')[1] || '');
+  if (!rel) { toast('拿 不 到 产物 路径'); return; }
+  try {
+    await api('/v1/outputs', { method: 'POST', body: { action: 'reveal', path: rel } });
+    toast('已 在 访达 中 显示');
+  } catch (e) { toast('显示 失败: ' + e.message); }
+};
 
 /* ============================================================ 导航 */
 // 骨架 照 闭源 Studio: 模型 / 监控 / API 接口 / 设置 —— 新建 (图像 / 视频 / 音频) —— 资料库 —— 会话
@@ -2796,6 +2814,8 @@ function renderImage() {
   <div class="image-output">
     <div class="image-preview" id="i-out">${EMPTY_PREVIEW('image', '还没有生成结果', '输入提示词，然后点按生成。')}</div>
     <button type="button" class="image-output-link" id="i-save">${svg('download', 13)}保存在此浏览器中的图像</button>
+    <button type="button" class="image-output-link" id="i-reveal">${svg('folder-open', 13)}在访达中显示</button>
+    <button type="button" class="image-output-link" id="i-outdir">${svg('folder', 13)}输出文件夹</button>
     <section class="image-gallery" id="gen-recent"></section>
   </div>
   </section>`;
@@ -2806,6 +2826,10 @@ function renderImage() {
   ['#i-w', '#i-h'].forEach(s => { const el = $(s); if (el) el.oninput = () => { refreshImageModelCard(); refreshSizeNote(); }; });
   const syncImageGen = bindGenToggle('i-go', 'i-prompt');
   $('#i-rand').onclick = () => { $('#i-seed').value = Math.floor(Math.random() * 4294967295); };
+  // 输出 目录 —— 根目录 / 刚 出 的 那 张, 一键 到 访达
+  let lastOutUrl = '';
+  $('#i-outdir').onclick = outOpenRoot;
+  $('#i-reveal').onclick = () => outReveal(lastOutUrl);
   // 参考图: {b64, mime} —— 缩略图 要 MIME, 后端 只收 裸 base64 (它 自己 _strip_b64)
   const sniffMime = (b64) => b64.startsWith('/9j/') ? 'image/jpeg'
     : b64.startsWith('iVBOR') ? 'image/png'
@@ -2938,6 +2962,7 @@ function renderImage() {
       }).join('') : EMPTY_PREVIEW('image', '还没有生成结果', '输入提示词，然后点按生成。');
       const first = list[0];
       if (first) {
+        lastOutUrl = first.url || '';
         const url = first.b64_json ? ('data:image/png;base64,' + first.b64_json) : first.url;
         $('#i-save').onclick = () => {
           const a = document.createElement('a');

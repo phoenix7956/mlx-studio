@@ -1865,6 +1865,20 @@ class H(BaseHTTPRequestHandler):
                     self._j({"ok":True,"root":root}); return
                 except Exception as e:
                     self._j({"ok":False,"error":str(e)},500); return
+            if (b.get("action") or "")=="reveal":
+                # 在 访达 里 定位 某一个 成品 —— path 是 /out/ 下 的 相对 路径
+                p=outputs.abs_from_rel(b.get("path") or "")
+                if not p or not os.path.exists(p):
+                    self._j({"ok":False,"error":"产物 不存在"},404); return
+                try:
+                    import subprocess
+                    if os.path.isdir(p):
+                        subprocess.run(["/usr/bin/open", p], timeout=20, check=True)
+                    else:
+                        subprocess.run(["/usr/bin/open", "-R", p], timeout=20, check=True)
+                    self._j({"ok":True,"path":p}); return
+                except Exception as e:
+                    self._j({"ok":False,"error":str(e)},500); return
             counts={}; total=0
             for kind,name in outputs.KIND_DIR.items():
                 d=os.path.join(root,name); n=0; bts=0

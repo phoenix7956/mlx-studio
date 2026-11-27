@@ -1,0 +1,8 @@
+/* 中文 本地化 —— 光 有 这个 目录 就 够:
+   AppKit 的 系统 面板 (选 文件 / 存 文件) 和 WebKit 的 右键 菜单,
+   都 按 **App 的 语言** 取 字符串 —— bundle 里 没有 zh-Hans.lproj 就 全部 退回 英文.
+   App 自己 的 文案 是 硬编码 中文, 不 走 这里. */
+
+CFBundleName = "MLX Serve Studio";
+CFBundleDisplayName = "MLX Serve Studio";
+CFBundleGetInfoString = "本地 MLX 推理控制台（出歌 / 出图 / 对话）";

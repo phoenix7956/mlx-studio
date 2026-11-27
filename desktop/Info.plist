@@ -4,12 +4,18 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>MLX Serve Studio</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_CN</string>
 	<key>CFBundleExecutable</key>
 	<string>MLXServeStudio</string>
 	<key>CFBundleGetInfoString</key>
 	<string>MLX Serve Studio —— 本地 MLX 推理 控制台 (出歌 / 出图 / 对话)</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleIdentifier</key>
 	<string>com.ours.mlxserve.studio</string>
 	<key>CFBundleName</key>
