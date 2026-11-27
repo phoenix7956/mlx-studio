@@ -462,7 +462,6 @@ def model_entries(srv):
             "pull": it.get("pull") or "",
             # 下载 页 —— 用户 点 开 就 去 那个 仓库 (魔搭 优先, 跟 下载器 走 同 一 条 路).
             "download_url": _download_page(it),
-            "repo": _download_repo(it),
             "engine": it.get("engine", "our-server"),
             "architecture": it.get("arch") or it.get("cap"),
             "error": it.get("error", ""),
@@ -547,19 +546,6 @@ def _download_page(it):
     if pull:
         return "https://huggingface.co/" + pull
     return ""
-
-
-def _download_repo(it):
-    """下载 页 上 的 仓库 名 (界面上 显示 用)."""
-    page = str(it.get("page") or "").strip()
-    if page:
-        p = page.split("://", 1)[-1]
-        p = p.split("/", 1)[1] if "/" in p else ""
-        parts = [x for x in p.split("/") if x]
-        if len(parts) >= 2:
-            return parts[0] + "/" + parts[1]
-        return parts[0] if parts else ""
-    return str(it.get("ms") or it.get("pull") or "").strip()
 
 
 def _license_key(it):

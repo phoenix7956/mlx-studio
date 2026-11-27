@@ -444,10 +444,8 @@ html[data-compact="1"] .section-title{margin:14px 0 7px}
 .media-model-actions button.chip.danger{color:var(--danger,#e5484d)}
 .media-model-actions button.chip.danger:hover{border-color:var(--danger,#e5484d)}
 .row-actions{display:flex;gap:6px;justify-content:flex-end}
-.model-id{cursor:copy}
-.model-id:hover{color:var(--text)}
-.model-src a{color:var(--accent);text-decoration:none;overflow-wrap:anywhere}
-.model-src a:hover{text-decoration:underline}
+.model-id a{color:var(--accent);text-decoration:none}
+.model-id a:hover{text-decoration:underline}
 button.ghost.danger{color:var(--error);border-color:transparent}
 button.ghost.danger:hover{border-color:var(--error);color:var(--error)}
 /* ---------- 确认 对话框 (删 模型 这种 不可逆 的 操作) ---------- */
@@ -1854,8 +1852,11 @@ async function renderModels() {
     // 下载 页 —— 点 开 就 去 那个 仓库 (魔搭 / HF); 没 下载 源 的 模型 不 摆
     const page = r.download_url || '';
     // 删 权重 (磁盘 上 的 文件夹) —— 只 给 有 本地 权重 的 模型, 不可逆
-    return `<tr data-mid="${esc(r.id)}" data-state="${esc(r.state || '')}"><td><div>${esc(r.name || r.id)}</div><div class="mono model-id" data-copy="${esc(r.id)}" title="点一下 复制 model id">${esc(r.id)}</div>
-      ${page ? `<div class="mono model-src"><a href="${esc(page)}" target="_blank" rel="noopener" title="下载页 · ${esc(page)}">${esc(r.repo || '下载页')}</a></div>` : ''}</td>
+    // model id 那 一 行 就 是 下载 链接 —— 点 开 就是 那个 仓库 (顺带 复制 id)
+    const idLine = page
+      ? `<a href="${esc(page)}" target="_blank" rel="noopener" data-copy="${esc(r.id)}" title="打开 下载页">${esc(r.id)}</a>`
+      : esc(r.id);
+    return `<tr data-mid="${esc(r.id)}" data-state="${esc(r.state || '')}"><td><div>${esc(r.name || r.id)}</div><div class="mono model-id">${idLine}</div></td>
       <td><span class="badge ${st}">${esc(r.state)}</span></td>
       <td>${licenseBadgeHTML(r)}</td>
       <td><div class="row-actions">${modelActsHTML(r)}</div></td></tr>`;
@@ -2470,7 +2471,6 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   const c = e.target.closest && e.target.closest('[data-copy]');
   if (!c) return;
-  e.preventDefault();
   const t = c.getAttribute('data-copy') || '';
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(() => toast('已复制 ' + t)).catch(() => toast(t));
