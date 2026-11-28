@@ -1,5 +1,7 @@
 import os, sys, time, json, urllib.parse, urllib.request
-BASE="http://127.0.0.1:11250"
+# 内核 现在 跑 在 11251 (11250 那 条 老 plist 已经 退役) —— 端口 写死 11250 的话,
+# 跑批 直接 "Connection refused", 一 片 都 出 不 来. 跟 run_full.py 一致.
+BASE = os.environ.get("MLX_BASE") or "http://127.0.0.1:11251"
 def get(path):
     r=urllib.request.urlopen(BASE+path, timeout=2000)
     return json.loads(r.read())
