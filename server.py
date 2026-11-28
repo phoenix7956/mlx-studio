@@ -56,6 +56,16 @@ ENGINE_WEIGHT_GIB = {"video": 25, "image": 15, "llm": 6}
 # 装 一个 之前 要 先 卸 掉 冲突 的 引擎 —— 两个 大 引擎 同时 在 内存 里 就 会 撞爆
 ENGINE_CONFLICT = {"video": ("image",), "image": ("video",), "llm": ("video", "image")}
 
+# —— 出片 之前 的 内存 体检 (2026-11-28 加) ——
+# 背景: 旧 护栏 只 在 「装 引擎」 时 看 一次 内存. 引擎 一旦 驻留, 后面 每 一 片 都 直接 放行,
+# 于是 可以 无限制 连着 出片 —— 把 压缩器 吃到 42G、free 只剩 14M, 最后 watchdogd 拿 不 到 CPU,
+# 90 秒 不 checkin → 内核 panic (wdog) → 机器 自动 重启 → FileVault 锁 屏 → 远端 链路 全 断.
+# 现在 每 一 片 前 都 体检: 可用 内存 不够 / 压缩器 太 胖 → 先 等 它 缓, 等 不 来 就 明确 拒绝.
+COMPRESSOR_LIMIT_GIB = float(os.environ.get("MLX_COMPRESSOR_LIMIT_GIB", "24"))  # 压缩器 超过 这 个 就 别 再 硬 跑
+VIDEO_RUN_MIN_GIB    = float(os.environ.get("MLX_VIDEO_RUN_MIN_GIB", "8"))     # 跑 一 片 时 系统 至少 还要 有 的 可用 内存
+VIDEO_COOLDOWN_S     = float(os.environ.get("MLX_VIDEO_COOLDOWN_S", "30"))      # 两 片 之间 的 冷却 (秒)
+VIDEO_MEM_WAIT_MAX   = float(os.environ.get("MLX_VIDEO_MEM_WAIT_MAX", "600"))  # 内存 不够 时 最 多 等 多久 (秒)
+
 # 路由 -> 会 用 到 的 引擎. 请求 进行 中 的 引擎 不能 被 置闲 卸载 (否则 会 跑到 一半 被 卸).
 PATH_KINDS = {
     "/v1/chat/completions": ("llm",), "/v1/completions": ("llm",),
@@ -231,6 +241,39 @@ def free_gib():
     except Exception:
         return None
 
+def mem_stat():
+    """一次 读 全 vm_stat —— 返回 各类 内存 (GiB).
+
+    注意 "Pages occupied by compressor" (当前 压缩器 里 压 着 多少) 和
+    "Pages stored in compressor" (历史 累计) 是 两 个 数, 这里 要 的 是 前 者.
+    """
+    try:
+        o=subprocess.check_output(["vm_stat"],text=True)
+    except Exception:
+        return None
+    def g(k):
+        for ln in o.splitlines():
+            if ln.startswith(k):
+                try: return int(ln.split(":")[1].strip().rstrip("."))*16384/1073741824
+                except Exception: return 0.0
+        return 0.0
+    return {
+        "free":       g("Pages free"),
+        "inactive":   g("Pages inactive"),
+        "purgeable":  g("Pages purgeable"),
+        "compressor": g("Pages occupied by compressor"),
+    }
+
+def avail_gib():
+    """真正 能 拿来 用 的 内存 (GiB) = 空闲 + 可回收 (file-backed inactive) + purgeable.
+
+    不 把 压缩器 算 进 来 —— 压缩器 里 的 数据 要 先 解压 才 用 得 上, 算 余量 会 太 乐观.
+    free_gib() 是 给 界面 看 的 (老 口径: 空闲 + inactive), 这里 是 给 护栏 用 的.
+    """
+    m = mem_stat()
+    if not m: return None
+    return m["free"] + m["inactive"] + m["purgeable"]
+
 _gpu_cache = {"t": 0.0, "v": None}
 
 def gpu_util_pct():
@@ -277,6 +320,7 @@ class Srv:
         self._inflight={}; self._inflight_lock=threading.Lock()
         self.video_lock=threading.RLock()   # RLock: _do_video 内部 也 会 拿 (老 /video 路由 已 拿 过)
         self._video_busy=False          # 出片 中 (视频 引擎 持有 ~25G, 别的 引擎 装 不 上)
+        self._video_cooldown_until=0.0   # 上 一 片 结束 的 时刻 + 冷却 秒数 —— 两 片 之间 让 内存 缓 一 缓
         self._image_busy=False         # 出图 中 (老 标志)
         self._image_running=0          # 正在 出图 的 请求 数 (换 模型 时 看 有没有 别人 在 跑)
         self.sessions={}; self.session_lock=threading.Lock()
@@ -482,6 +526,10 @@ class Srv:
         got=self.video_lock.acquire(timeout=VIDEO_WAIT_MAX)
         if not got:
             raise RuntimeError("已 有 出片 在 跑, 一次 只 出 一 片, 稍 后 再试")
+        # 冷却 + 内存 体检 —— 必须 在 锁 内 (顺序 才 算数), 也 必须 在 _video_busy=True 之前
+        # (这 时 才 能 安全 地 卸载 视频 引擎 自愈). 详见 _video_mem_guard.
+        self._video_cooldown()
+        self._video_mem_guard()
         self._video_busy=True
         try:
             # 视频 模型 (h3-4bit / wan2-ti2v-5b) —— 决定 用 哪个 引擎
@@ -561,6 +609,8 @@ class Srv:
                 save_frames(out,res.video); save_wav(out+".wav",res.audio,res.sample_rate); fr=f"file://{out}"
         finally:
             self._video_busy=False
+            # 下 一 片 先 缓 一 缓 (让 压缩器 把 内存 吐 回来)
+            self._video_cooldown_until=time.time()+VIDEO_COOLDOWN_S
             self.video_lock.release()
         # 出完不卸 — 只由 置 闲 计 时 器 (30min) 或 手 动 /unload 决 定 卸
         self.touch("video")
@@ -828,6 +878,59 @@ class Srv:
                ("现在 占着 内存 的 是：%s。先 在「模型」页 卸载 它，或 点「全部卸载」。"
                 % "、".join(_engine_cn(k) for k in hog)) if hog
                else "先 关掉 别的 占 内存 的 程序 再 试。"))
+    def _video_cooldown(self):
+        """两 片 之间 的 冷却 —— 让 上一 片 的 内存 (Metal buffer / 激活 权重) 先 被 回收 掉.
+
+        之前 是 「出完 立刻 接 下一 片」, 队列 一 长 就 把 压缩器 顶 到 40G+,
+        最后 watchdogd 饿 死 → 内核 panic (2026-11-28 那 次 就是 这 样 断 的).
+        """
+        rem = self._video_cooldown_until - time.time()
+        if rem > 0:
+            time.sleep(min(rem, 120))
+
+    def _video_mem_guard(self):
+        """每 一 片 前 的 内存 体检 —— 不 只是 「引擎 装 没装」.
+
+        旧 护栏 只 在 装 引擎 时 看 一次 free_gib(); 引擎 一旦 驻留, 后面 每 一 片 都 直接 放行.
+        于是 可以 连轴 出片, 直到 压缩器 吃掉 42G、free 只剩 14M —— 机器 冻 住, watchdogd
+        90 秒 不 checkin, 内核 panic, 自动 重启, FileVault 锁 屏, 远端 链路 全 断.
+
+        现在 每 一 片 前 都 查:
+          · 可用 内存 (空闲 + 可回收 + purgeable) —— 模型 没 装 要 够 25G+reserve, 装 着 了 也要 有 跑片 的 余量
+          · 压缩器 有没有 已经 胖 到 该 让 系统 缓 一 缓
+        不 够 就 等 (最多 VIDEO_MEM_WAIT_MAX 秒), 期间 顺手 把 视频 引擎 卸 了 放 出 ~25G;
+        等 不 来 就 明确 拒绝 —— 宁可 少 出 一 片, 也 别 拖 死 机器.
+        """
+        need = ENGINE_WEIGHT_GIB.get("video", 25)
+        reserve = self.os_reserve_gib or 0
+        t0 = time.time()
+        unloaded = False
+        while True:
+            m = mem_stat()
+            if not m:
+                return                      # 读 不 到 vm_stat → 不 拦 (老 行为)
+            avail = m["free"] + m["inactive"] + m["purgeable"]
+            loaded = self.engines.get("video") is not None
+            # 模型 已经 驻留 → 不 用 再 给 它 留 25G; 只 要 系统 还有 喘气 的 余量
+            need_now = (need + reserve) if not loaded else VIDEO_RUN_MIN_GIB
+            bad = []
+            if avail < need_now:
+                bad.append("可用内存只有 %.0fG (需要 %dG)" % (avail, need_now))
+            if m["compressor"] > COMPRESSOR_LIMIT_GIB:
+                bad.append("压缩器已经吃到 %.0fG (上限 %gG), 系统正在颠簸"
+                           % (m["compressor"], COMPRESSOR_LIMIT_GIB))
+            if not bad:
+                return
+            # 自愈: 这 时 没 在 出片 (视频 锁 在 手 里), 把 视频 引擎 卸 了 放 出 ~25G 再 等
+            if loaded and not unloaded and not self._video_busy:
+                self.unload("video")
+                unloaded = True
+            if time.time() - t0 > VIDEO_MEM_WAIT_MAX:
+                raise MemGuardError(
+                    "内存不够 出片: %s。已等 %d 秒 还是 不够 —— 先 等 一会儿, "
+                    "或去「模型」页卸载别的模型。" % ("；".join(bad), int(VIDEO_MEM_WAIT_MAX)))
+            time.sleep(10)
+
     def record_library(self, kind, path, model="", prompt="", preview=""):
         """记 一 条 生成 产物 (给 /v1/library 和 控制台 素材库)."""
         if not path or not os.path.isfile(path): return
@@ -1446,7 +1549,10 @@ class H(BaseHTTPRequestHandler):
             self._serve_file(path)
             return
         if p=="/health":
-            fr=free_gib(); self._j({"status":"ok","node":NODE,"loaded":self.srv.loaded_engines(),"idle_s":getattr(self.srv,"idle_evict_secs",IDLE_S),"route":route_now(),"free_gib":round(fr,1) if fr is not None else None})
+            fr=free_gib(); av=avail_gib(); ms=mem_stat()
+            self._j({"status":"ok","node":NODE,"loaded":self.srv.loaded_engines(),"idle_s":getattr(self.srv,"idle_evict_secs",IDLE_S),"route":route_now(),"free_gib":round(fr,1) if fr is not None else None,
+                      "avail_gib":round(av,1) if av is not None else None,
+                      "mem":{k:round(v,1) for k,v in ms.items()} if ms else None})
         elif p=="/unload":
             self.srv.unload(); self._j({"unloaded":True,"loaded":[]})
         elif p=="/video":
@@ -1534,6 +1640,11 @@ class H(BaseHTTPRequestHandler):
             lines.append(f'mlx_studio_gen_bytes {m["gen_bytes"]}')
             lines.append(f'mlx_studio_rss_bytes {int(m["rss_gib"]*1073741824)}')
             lines.append(f'mlx_studio_free_gib {m["free_gib"]}')
+            av=avail_gib(); ms=mem_stat()
+            if av is not None:
+                lines.append(f'mlx_studio_avail_gib {round(av,2)}')
+            if ms:
+                lines.append(f'mlx_studio_compressor_gib {round(ms["compressor"],2)}')
             for k in m["engines"]:
                 lines.append(f'mlx_studio_engine_loaded{{engine="{k}"}} 1')
             body=("\n".join(lines)+"\n").encode()
